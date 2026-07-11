@@ -30,16 +30,26 @@ ${tldr_context}"
 
     local response=""
     if command -v curl &>/dev/null && command -v jq &>/dev/null; then
-        # jq를 사용해 JSON 페이로드를 안전하게 이스케이프 조립 (줄바꿈/따옴표 이스케이프 해결)
+        # jq를 사용해 JSON 페이로드를 안전하게 이스케이프 조립 (stream: true 설정)
         local json_data=$(jq -n \
             --arg model "${OLLAMA_MODEL}" \
             --arg prompt "system: ${system_prompt}
 user: ${input}" \
-            --argjson stream false \
+            --argjson stream true \
             '{model: $model, prompt: $prompt, stream: $stream}')
 
-        # 연결 타임아웃 3초, 최대 수행 시간 25초 제한 추가 (콜드 스타트 대기 시간 확보)
-        response=$(curl -s --connect-timeout 3 --max-time 25 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data" | jq -r '.response' 2>/dev/null | sed '/^\s*$/d')
+        # 2단계 피드백 개시 (실시간 명령어 생성 상태 연출)
+        printf "\e[1A\e[2K🔍 ctrlg: AI 추천 명령어 실시간 생성 중 ➡️  " >&2
+
+        # curl --no-buffer와 프로세스 치환으로 실시간 1토큰 단위 렌더링 스트리밍
+        while read -r line; do
+            [ -z "$line" ] && continue
+            local token=$(echo "$line" | jq -r '.response' 2>/dev/null)
+            if [ -n "$token" ] && [ "$token" != "null" ]; then
+                response="${response}${token}"
+                printf "%s" "$token" >&2
+            fi
+        done < <(curl -s -N --connect-timeout 3 --max-time 25 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data")
     else
         response=$(ollama run "${OLLAMA_MODEL}" "System: ${system_prompt}\nUser: ${input}" | sed '/^\s*$/d')
     fi
