@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+# 절대 경로 기준 프로젝트 디렉토리 탐색
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# 모듈 로드
+source "${PROJECT_DIR}/config/config.env"
+source "${PROJECT_DIR}/src/utils.sh"
+source "${PROJECT_DIR}/src/fast_path.sh"
+source "${PROJECT_DIR}/src/security.sh"
+source "${PROJECT_DIR}/src/ai_fallback.sh"
+
+input="$*"
+if [ -z "$input" ]; then
+    log_warn "사용법: ctrlg [질문 또는 명령어 요청]"
+    exit 1
+fi
+
+# 1. Fast Path 매핑 시도
+fast_cmd=$(check_fast_path "$input")
+if [ $? -eq 0 ]; then
+    eval "$fast_cmd"
+    exit 0
+fi
+
+# 2. AI Fallback 호출
+log_info "AI 분석 중... (${OLLAMA_MODEL})"
+ai_response=$(query_ai "$input" "${PROJECT_DIR}/config/config.env" "${PROJECT_DIR}/prompts/system_prompt.txt")
+
+if [ -z "$ai_response" ]; then
+    log_error "AI 응답을 가져오지 못했습니다."
+    exit 1
+fi
+
+# 첫 번째 라인 추출
+first_line=$(echo "$ai_response" | head -n 1)
+
+if [[ "$first_line" =~ ^CMD: ]]; then
+    cmd="${first_line#CMD:}"
+    cmd=$(echo "$cmd" | xargs)
+
+    # 보안성 검사
+    validate_command "$cmd" "$WHITELIST_COMMANDS"
+    validation_status=$?
+
+    if [ $validation_status -eq 0 ]; then
+        # 클립보드 저장
+        if [ "$AUTO_COPY_CLIPBOARD" = true ]; then
+            copy_to_clipboard "$cmd"
+            if [ $? -eq 0 ]; then
+                log_info "추천 명령어가 클립보드에 복사되었습니다."
+            fi
+        fi
+
+        # 실행 승인 확인
+        echo -n -e "\e[1;36m[실행 제안]\e[0m $cmd  (실행하시겠습니까? y/N): "
+        if read -t "$TIMEOUT_SEC" -r confirm < /dev/tty 2>/dev/null; then
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                eval "$cmd"
+            else
+                log_warn "실행이 취소되었습니다."
+            fi
+        else
+            log_warn " (대기 시간 초과 또는 비대화형 환경이므로 실행이 취소되었습니다)"
+        fi
+    elif [ $validation_status -eq 1 ]; then
+        log_error "보안 위험이 감지되어 명령어 실행을 차단했습니다."
+        echo "차단된 명령어: $cmd"
+    else
+        log_warn "실행이 제한된 명령어입니다."
+        echo "제안된 전체 명령어: $cmd"
+    fi
+else
+    # 일반 답변 출력
+    echo "$ai_response"
+fi
