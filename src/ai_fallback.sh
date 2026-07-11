@@ -24,15 +24,8 @@ query_ai() {
 ${tldr_context}"
     fi
 
-    # WSL 호스트 IP 자동 탐지 및 셋업
-    if [ "$OLLAMA_HOST" = "http://127.0.0.1:11434" ]; then
-        if grep -q microsoft /proc/version 2>/dev/null; then
-            local host_ip=$(grep nameserver /etc/resolv.conf | awk '{print $2}')
-            if [ -n "$host_ip" ]; then
-                OLLAMA_HOST="http://${host_ip}:11434"
-            fi
-        fi
-    fi
+    # Ollama 호스트 최적 경로 탐색 및 전환 (WSL 호스트 IP 대응 포함)
+    setup_ollama_host
 
     local response=""
     if command -v curl &>/dev/null && command -v jq &>/dev/null; then

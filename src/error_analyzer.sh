@@ -13,15 +13,8 @@ analyze_command_error() {
 사용자가 입력한 명령어 '$error_cmd'가 종료 코드 $exit_status 로 실패했습니다.
 실패한 원인을 2줄 이내로 간결히 설명하고, 정상적으로 실행될 수 있는 교정 명령어를 '💡 제안: 명령어' 형식으로만 추천하세요."
 
-    # WSL 호스트 IP 대응
-    if [ "$OLLAMA_HOST" = "http://127.0.0.1:11434" ]; then
-        if grep -q microsoft /proc/version 2>/dev/null; then
-            local host_ip=$(grep nameserver /etc/resolv.conf | awk '{print $2}')
-            if [ -n "$host_ip" ]; then
-                OLLAMA_HOST="http://${host_ip}:11434"
-            fi
-        fi
-    fi
+    # Ollama 호스트 최적 경로 탐색 및 전환 (WSL 호스트 IP 대응 포함)
+    setup_ollama_host
 
     local response=""
     if command -v curl &>/dev/null && command -v jq &>/dev/null; then

@@ -10,7 +10,9 @@ TEST_DUMMY_HOST="http://192.0.2.1:11434"
 echo "🧪 [TDD Test 1] Ollama 호스트 무반응 대기(Hang) 감지 시도..."
 export OLLAMA_HOST="$TEST_DUMMY_HOST"
 
-timeout 4s /home/al-hub/workspace/ctrlg/bin/ctrlg --raw "하위폴더갯수"
+# 7초 타임아웃 제어 하에 ctrlg 호출
+# (동적 헬스체크 0.5초*2회 + 실제 통신 타임아웃 3초의 최대 지연 누적분을 감안하여 7초 내에 최종 탈출하는지 확인)
+timeout 7s /home/al-hub/workspace/ctrlg/bin/ctrlg --raw "하위폴더갯수"
 status=$?
 
 if [ $status -eq 124 ]; then
