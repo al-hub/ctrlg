@@ -58,10 +58,9 @@ graph TD
       zle redisplay
   }
   
-  # 위젯으로 등록하고 단축키 Ctrl+G 및 Ctrl+Space(한영 모드 우회용)에 매핑
+  # 위젯으로 등록하고 단축키 Ctrl+G에 매핑
   zle -N ctrlg-widget
   bindkey '^g' ctrlg-widget
-  bindkey '^@' ctrlg-widget
   ```
 
 * **Bash (`~/.bashrc`) 구현 방법**:
@@ -76,9 +75,8 @@ graph TD
           READLINE_POINT=${#READLINE_LINE} # 커서 위치 설정
       fi
   }
-  # Ctrl+G (\C-g) 및 Ctrl+Space (\C-@, 한영 모드 우회용) 단축키 바인딩
+  # Ctrl+G (\C-g) 단축키 바인딩
   bind -x '"\C-g": _ctrlg_bash_bind'
-  bind -x '"\C-@": _ctrlg_bash_bind'
   ```
 
 ---

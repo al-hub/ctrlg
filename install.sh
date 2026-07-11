@@ -54,7 +54,7 @@ inject_shell_profile() {
         snippet="
 # ctrlg AI CLI Integration
 if command -v ctrlg &>/dev/null; then
-    # Zsh Ctrl+G 및 Ctrl+Space 위젯 바인딩
+    # Zsh Ctrl+G 위젯 바인딩
     ctrlg-widget() {
         local query=\"\$BUFFER\"
         if [ -n \"\$query\" ]; then
@@ -69,7 +69,6 @@ if command -v ctrlg &>/dev/null; then
     }
     zle -N ctrlg-widget
     bindkey '^g' ctrlg-widget
-    bindkey '^@' ctrlg-widget   # Ctrl + Space (한영 전환 생략 보조 단축키)
 
     # Zsh 에러 감지 훅
     ctrlg_error_hook() {
@@ -89,7 +88,7 @@ fi"
         snippet="
 # ctrlg AI CLI Integration
 if command -v ctrlg &>/dev/null; then
-    # Bash Ctrl+G 및 Ctrl+Space 위젯 바인딩
+    # Bash Ctrl+G 위젯 바인딩
     _ctrlg_bash_bind() {
         local query=\"\$READLINE_LINE\"
         if [ -n \"\$query\" ]; then
@@ -99,7 +98,6 @@ if command -v ctrlg &>/dev/null; then
         fi
     }
     bind -x '\"\C-g\": _ctrlg_bash_bind'
-    bind -x '\"\C-@\": _ctrlg_bash_bind' # Ctrl + Space (한영 전환 생략 보조 단축키)
 
     # Bash 에러 감지 훅
     ctrlg_error_hook() {
