@@ -61,6 +61,14 @@ raw_query_ai() {
     local input="$1"
     local project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     
+    # Fast Path 모듈 로드 및 시도
+    source "${project_dir}/src/fast_path.sh"
+    local fast_cmd=$(check_fast_path "$input")
+    if [ $? -eq 0 ]; then
+        echo "$fast_cmd"
+        return 0
+    fi
+    
     # 쿼리 수행
     local ai_res=$(query_ai "$input" "${project_dir}/config/config.env" "${project_dir}/prompts/system_prompt.txt")
     
