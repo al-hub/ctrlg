@@ -45,17 +45,18 @@ inject_shell_profile() {
     cp "$profile_path" "${profile_path}.bak_ctrlg"
     echo "💾 백업 생성 완료: ${profile_path}.bak_ctrlg"
 
-    # 이미 설정이 삽입되어 있는지 체크하여 기존 블록 제거 (중복 삽입 방지 및 업데이트)
+    # 이미 설정이 삽입되어 있는지 체크하여 기존 블록 제거 (시작/끝 주석 기준 안전 삭제)
     if grep -q "# ctrlg AI CLI Integration" "$profile_path"; then
-        # sed를 사용해 이전 통합 설정 블록 제거
-        sed -i '/# ctrlg AI CLI Integration/,/fi/d' "$profile_path"
+        # 구버전 fi 기반 제거 패턴과 신버전 Start/End 주석 제거 패턴 통합 적용
+        sed -i '/# ctrlg AI CLI Integration Start/,/# ctrlg AI CLI Integration End/d' "$profile_path"
+        sed -i '/# ctrlg AI CLI Integration/,/fi/d' "$profile_path" 2>/dev/null
         # 연속된 빈 줄 정리
         sed -i '/^$/N;/^\n$/D' "$profile_path"
     fi
 
     if [ "$shell_name" = "zsh" ]; then
         snippet="
-# ctrlg AI CLI Integration
+# ctrlg AI CLI Integration Start
 if [ -f ${BIN_DEST} ]; then
     # Zsh Ctrl+G 위젯 바인딩 (절대경로 호출 적용)
     ctrlg-widget() {
@@ -86,10 +87,11 @@ if [ -f ${BIN_DEST} ]; then
     if [[ \${precmd_functions[(r)ctrlg_error_hook]} != ctrlg_error_hook ]]; then
         precmd_functions+=(ctrlg_error_hook)
     fi
-fi"
+fi
+# ctrlg AI CLI Integration End"
     elif [ "$shell_name" = "bash" ]; then
         snippet="
-# ctrlg AI CLI Integration
+# ctrlg AI CLI Integration Start
 if [ -f ${BIN_DEST} ]; then
     # Bash Ctrl+G 위젯 바인딩 (절대경로 호출 적용)
     _ctrlg_bash_bind() {
@@ -111,7 +113,8 @@ if [ -f ${BIN_DEST} ]; then
         fi
     }
     PROMPT_COMMAND=\"ctrlg_error_hook; \$PROMPT_COMMAND\"
-fi"
+fi
+# ctrlg AI CLI Integration End"
     fi
 
     # 프로필 파일에 설정 덧붙이기
