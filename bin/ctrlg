@@ -57,7 +57,7 @@ first_line=$(echo "$ai_response" | head -n 1)
 
 if [[ "$first_line" =~ ^CMD: ]]; then
     cmd="${first_line#CMD:}"
-    cmd=$(echo "$cmd" | xargs)
+    cmd=$(echo "$cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
     # 보안성 검사
     validate_command "$cmd" "$WHITELIST_COMMANDS"

@@ -77,7 +77,7 @@ raw_query_ai() {
     # CMD: 접두사가 존재하면 값만 추출하여 출력, 아니면 입력어 그대로 출력 (대체)
     if [[ "$first_line" =~ ^CMD: ]]; then
         local cmd="${first_line#CMD:}"
-        echo "$cmd" | xargs
+        echo "$cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
     else
         # CMD 매핑 실패 시 쉘 버퍼를 흐트러뜨리지 않기 위해 빈칸 대신 입력어 원본 유지
         echo "$input"

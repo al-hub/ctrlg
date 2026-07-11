@@ -77,7 +77,7 @@ if [ -f ${BIN_DEST} ]; then
     # Zsh 에러 감지 훅
     ctrlg_error_hook() {
         local last_exit=\$?
-        local last_cmd=\$(fc -ln -1 | xargs)
+        local last_cmd=\$(fc -ln -1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*\$//')
         if [ \$last_exit -ne 0 ] && [[ \"\$last_cmd\" != ctrlg* ]] && [[ \"\$last_cmd\" != cg* ]]; then
             ${BIN_DEST} --analyze-error \"\$last_cmd\" \$last_exit
         fi

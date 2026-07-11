@@ -15,7 +15,7 @@ validate_command() {
     local valid=1
     while read -r sub_cmd; do
         [ -z "$sub_cmd" ] && continue
-        sub_cmd=$(echo "$sub_cmd" | xargs)
+        sub_cmd=$(echo "$sub_cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
         local sub_base=$(echo "$sub_cmd" | awk '{print $1}')
         
         local matched=0
