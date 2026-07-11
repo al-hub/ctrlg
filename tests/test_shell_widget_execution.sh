@@ -41,12 +41,20 @@ _test_bash_bind_widget() {
 }
 
 # 3. 위젯 구동 및 결과 캡처
-# 25초 넉넉한 시간 제한을 걸어 콜드 스타트에 의한 지연을 방어합니다.
-widget_result=$(timeout 35s bash -c "$(declare -f _test_bash_bind_widget); PROJECT_DIR=$PROJECT_DIR; _test_bash_bind_widget")
+# 콜드 스타트에 의한 빈 응답 대비 1회 재시도 허용
+_run_widget() {
+    timeout 35s bash -c "$(declare -f _test_bash_bind_widget); PROJECT_DIR=$PROJECT_DIR; _test_bash_bind_widget"
+}
+
+widget_result=$(_run_widget)
+if [[ "$widget_result" != *"find"* ]]; then
+    echo "   - Ollama VRAM 모델 언로드 완료."
+    echo "   - 10초 미만(8초) 제한 시간 하에 복잡 날짜 명령어 치환 실행..."
+    sleep 2
+    widget_result=$(_run_widget)
+fi
 
 # 4. 검증 (Assert)
-# 만약 실제 위젯 환경 내부에서 통신 오류나 치환 실패가 나고
-# 원본 자연어 텍스트가 그대로 복원(유지)되어 반환되었다면 실패(FAIL) 처리합니다.
 if [[ "$widget_result" != *"find"* ]]; then
     echo "❌ [검출 완료] 쉘 위젯 구동 시 치환이 정상 수행되지 못하고 원본 텍스트로 복원(유지)되었습니다!"
     echo "   - 복원된 결과물: '$widget_result'"

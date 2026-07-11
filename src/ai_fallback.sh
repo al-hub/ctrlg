@@ -91,18 +91,38 @@ user: ${input}" \
             shown=$((shown + 1))
         done
 
-        # curl 스트리밍 수신 및 첫 토큰 도착 시 헤더 출력
+        # TTFT(첫 토큰 대기) 구간: 2초마다 경과시간을 로그로 출력하는 heartbeat
+        local _ttft_start=$SECONDS
+        (
+            while true; do
+                sleep 2
+                local elapsed=$(( SECONDS - _ttft_start ))
+                printf "[ctrlg]  waiting : first token... (%ds)\n" "$elapsed" >&2
+            done
+        ) &
+        local heartbeat_pid=$!
+
         local first_token=true
-        printf "[ctrlg]  output: " >&2
 
         while read -r line; do
             [ -z "$line" ] && continue
             local token=$(echo "$line" | jq -r '.response' 2>/dev/null)
             if [ -n "$token" ] && [ "$token" != "null" ]; then
+                # 첫 토큰 도착 즉시 heartbeat 종료 후 output 헤더 출력
+                if [ "$first_token" = true ]; then
+                    kill "$heartbeat_pid" &>/dev/null
+                    wait "$heartbeat_pid" 2>/dev/null
+                    printf "[ctrlg]  output : " >&2
+                    first_token=false
+                fi
                 response="${response}${token}"
                 printf "%s" "$token" >&2
             fi
         done < <(curl -s -N --connect-timeout 3 --max-time 25 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data")
+
+        # 안전 장치: curl 종료 후 heartbeat 잔존 시 강제 종료
+        kill "$heartbeat_pid" &>/dev/null
+        wait "$heartbeat_pid" 2>/dev/null
 
         # 스트리밍 완료 후 줄바꿈
         printf "\n" >&2
@@ -148,7 +168,8 @@ raw_query_ai() {
     
     if [ -n "$cmd_line" ]; then
         local cmd="${cmd_line#CMD:}"
-        cmd=$(echo "$cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        # 백틱이나 마크다운 코드블록이 포함된 잔재 제거 후 공백 트리밍
+        cmd=$(echo "$cmd" | sed 's/`.*$//' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
         
         # 보안 검증 로그
         printf "[ctrlg]  security: validating [%s]\n" "$cmd" >&2
