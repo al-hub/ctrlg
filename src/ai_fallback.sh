@@ -26,6 +26,7 @@ ${tldr_context}"
 
     # Ollama 호스트 최적 경로 탐색 및 전환 (WSL 호스트 IP 대응 포함)
     setup_ollama_host
+    printf "\e[1A\e[2K🔍 ctrlg: AI 분석 및 명령어 추론 진행 중...\n" >&2
 
     local response=""
     if command -v curl &>/dev/null && command -v jq &>/dev/null; then
@@ -68,7 +69,10 @@ raw_query_ai() {
         return 0
     fi
     
-    # 쿼리 수행
+    # 1단계 피드백: 연결 상태 체크
+    printf "🔍 ctrlg: Ollama 연결 상태 체크 중...\n" >&2
+    
+    # 쿼리 수행 (2단계 피드백은 query_ai 진입 직후 수행됨)
     local ai_res=$(query_ai "$input" "${project_dir}/config/config.env" "${project_dir}/prompts/system_prompt.txt")
     
     # 첫 줄 추출
@@ -77,9 +81,26 @@ raw_query_ai() {
     # CMD: 접두사가 존재하면 값만 추출하여 출력, 아니면 입력어 그대로 출력 (대체)
     if [[ "$first_line" =~ ^CMD: ]]; then
         local cmd="${first_line#CMD:}"
-        echo "$cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+        cmd=$(echo "$cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        
+        # 3단계 피드백: 보안성 검증
+        printf "\e[1A\e[2K🔍 ctrlg: 도출된 명령어 보안 검증 중...\n" >&2
+        
+        # 위젯용 보안성 검사 가동
+        source "${project_dir}/src/security.sh"
+        validate_command "$cmd" "$WHITELIST_COMMANDS"
+        if [ $? -eq 0 ]; then
+            # 4단계 피드백: 통과 완료
+            printf "\e[1A\e[2K🔍 ctrlg: 보안 검사 통과 및 치환 완료\n" >&2
+            echo "$cmd"
+        else
+            # 보안 실패 시 안전 롤백 및 에러 알림
+            printf "\e[1A\e[2K⚠️  ctrlg: 보안 위험이 감지되어 원본을 유지합니다.\n" >&2
+            echo "$input"
+        fi
     else
-        # CMD 매핑 실패 시 쉘 버퍼를 흐트러뜨리지 않기 위해 빈칸 대신 입력어 원본 유지
+        # 치환 실패 시에도 진행 라인을 지우고 원본 반환
+        printf "\e[1A\e[2K" >&2
         echo "$input"
     fi
 }

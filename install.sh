@@ -62,10 +62,10 @@ if [ -f ${BIN_DEST} ]; then
     ctrlg-widget() {
         local query=\"\$BUFFER\"
         if [ -n \"\$query\" ]; then
-            printf \"\\\\n\\\\e[1;30m🔍 ctrlg: AI 분석 중... (Ollama 연결 및 추론 진행)\\\\e[0m\\\\n\"
+            printf \"\\\\n\"
             zle redisplay
             local result=\$(${BIN_DEST} --raw \"\$query\")
-            printf \"\\\\e[1A\\\\e[2K\\\\e[1A\\\\e[2K\"
+            printf \"\\\\e[1A\\\\e[2K\"
             BUFFER=\"\$result\"
             CURSOR=\$\#BUFFER
             zle redisplay
@@ -97,9 +97,9 @@ if [ -f ${BIN_DEST} ]; then
     _ctrlg_bash_bind() {
         local query=\"\$READLINE_LINE\"
         if [ -n \"\$query\" ]; then
-            printf \"\\\\n\\\\e[1;30m🔍 ctrlg: AI 분석 중... (Ollama 연결 및 추론 진행)\\\\e[0m\\\\n\"
+            printf \"\\\\n\"
             local result=\$(${BIN_DEST} --raw \"\$query\")
-            printf \"\\\\e[1A\\\\e[2K\\\\e[1A\\\\e[2K\"
+            printf \"\\\\e[1A\\\\e[2K\"
             READLINE_LINE=\"\$result\"
             READLINE_POINT=\$\{#READLINE_LINE\}
         fi
