@@ -48,18 +48,71 @@ user: ${input}" \
             --argjson stream true \
             '{model: $model, prompt: $prompt, stream: $stream}')
 
-        # 2단계 피드백 개시 (실시간 명령어 생성 상태 연출)
-        printf "🔍 ctrlg: AI 추천 명령어 실시간 생성 중 ➡️  " >&2
+        # 2-1단계: 매칭된 RAG 문서의 실제 예제 명령어를 실시간으로 순환 노출
+        local examples=()
+        local files=()
+        local tldr_path="${project_dir}/resources/tldr"
+        for f in $LAST_RAG_MATCHES; do
+            local file_path="${tldr_path}/${f}"
+            if [ -f "$file_path" ]; then
+                local cmd_name="${f%.md}"
+                # 마크다운 내의 실제 예제 명령어 추출
+                while read -r line; do
+                    if [ -n "$line" ]; then
+                        examples+=("$line")
+                        files+=("$f")
+                    fi
+                done < <(grep -E "^[[:space:]]*${cmd_name}\b" "$file_path" | sed 's/^[[:space:]]*//')
+            fi
+        done
+
+        # 매칭된 실제 RAG 데이터 리포터 비동기 가동
+        (
+            local idx=0
+            local count=${#examples[@]}
+            if [ $count -eq 0 ]; then
+                local dots=""
+                while true; do
+                    dots="${dots}."
+                    if [ ${#dots} -gt 3 ]; then dots=""; fi
+                    printf "\r\e[2K🔍 ctrlg: AI 추천 명령어 분석 및 생성 중%s   " "$dots" >&2
+                    sleep 0.5
+                done
+            else
+                while true; do
+                    local cur_file="${files[$idx]}"
+                    local cur_example="${examples[$idx]}"
+                    printf "\r\e[2K🔍 ctrlg: RAG 지식 참조 중 ➡️  [%s: %s] (연산 중...)" "$cur_file" "$cur_example" >&2
+                    idx=$(( (idx + 1) % count ))
+                    sleep 0.7
+                done
+            fi
+        ) &
+        local loader_pid=$!
+
+        local first_token=true
 
         # curl --no-buffer와 프로세스 치환으로 실시간 1토큰 단위 렌더링 스트리밍
         while read -r line; do
             [ -z "$line" ] && continue
             local token=$(echo "$line" | jq -r '.response' 2>/dev/null)
             if [ -n "$token" ] && [ "$token" != "null" ]; then
+                # 첫 번째 토큰 도착 즉시 백그라운드 비동기 로더 프로세스 강제 종료
+                if [ "$first_token" = true ]; then
+                    kill "$loader_pid" &>/dev/null
+                    wait "$loader_pid" 2>/dev/null
+                    # 실시간 명령어 생성 갱신 모드로 헤더 전환
+                    printf "\r\e[2K🔍 ctrlg: AI 추천 명령어 실시간 생성 중 ➡️  " >&2
+                    first_token=false
+                fi
                 response="${response}${token}"
                 printf "%s" "$token" >&2
             fi
         done < <(curl -s -N --connect-timeout 3 --max-time 25 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data")
+
+        # 안전 장치: 루프 종료 후 비동기 로더 강제 종료 상태 보장
+        kill "$loader_pid" &>/dev/null
+        wait "$loader_pid" 2>/dev/null
     else
         response=$(ollama run "${OLLAMA_MODEL}" "System: ${system_prompt}\nUser: ${input}" | sed '/^\s*$/d')
     fi

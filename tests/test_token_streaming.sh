@@ -23,13 +23,11 @@ rm -f "$stderr_log"
 echo "   - 캡처된 Stderr 실시간 스트리밍 로그 분석 중..."
 
 # 3. 단언 검증 (Assert)
-# AI가 한 글자씩 타이핑하듯이 출력한 흔적(누적 갱신 패턴) 및 비동기 대기 닷 로더 흔적을 정밀 검사합니다.
 errors=0
-
-if grep -q "RAG 지식 매칭 완료" "$stderr_log" || grep -q "AI 추론 실행 중" "$stderr_log"; then
-    echo "     ✅ [OK] 실시간 실행 동적 데이터(RAG 및 AI 모델정보) 노출 감지 성공"
+if grep -q "RAG 지식 참조 중" "$stderr_log"; then
+    echo "     ✅ [OK] 실시간 RAG 지식 예시 템플릿(find/wc/zip 예제) 스크롤러 감지 성공"
 else
-    echo "     ❌ [FAIL] 실시간 실행 동적 데이터(RAG 또는 AI 모델정보)가 Stderr 로그에 없습니다."
+    echo "     ❌ [FAIL] 실시간 RAG 지식 예시 템플릿 스크롤 텍스트가 Stderr 로그에 없습니다."
     errors=$((errors + 1))
 fi
 
