@@ -35,4 +35,7 @@ assert_status "find . -type f | wc -l" 0
 # 5. 파이프라인 악성 결합 통제 (1 또는 2)
 assert_status "find . -type f | rm -rf" 1
 
+# 6. 느낌표(!) 논리 부정 기호가 포함된 find 명령어 허용 검증 (TDD 추가)
+assert_status "find . -type f ! -newermt '2026-04-20'" 0
+
 exit 0
