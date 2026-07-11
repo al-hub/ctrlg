@@ -65,7 +65,6 @@ if [ -f ${BIN_DEST} ]; then
             printf \"\\\\n\"
             zle redisplay
             local result=\$(${BIN_DEST} --raw \"\$query\")
-            printf \"\\\\e[1A\\\\e[2K\"
             BUFFER=\"\$result\"
             CURSOR=\$\#BUFFER
             zle redisplay
@@ -99,7 +98,6 @@ if [ -f ${BIN_DEST} ]; then
         if [ -n \"\$query\" ]; then
             printf \"\\\\n\"
             local result=\$(${BIN_DEST} --raw \"\$query\")
-            printf \"\\\\e[1A\\\\e[2K\"
             READLINE_LINE=\"\$result\"
             READLINE_POINT=\$\{#READLINE_LINE\}
         fi
