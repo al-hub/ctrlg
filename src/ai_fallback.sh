@@ -5,14 +5,27 @@ query_ai() {
     local input="$1"
     local config_file="$2"
     local prompt_file="$3"
+    
+    local project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    
+    # RAG 매처 모듈 로드
+    source "${project_dir}/src/rag_matcher.sh"
 
     # 설정 파일 로드
     source "$config_file"
     local system_prompt=$(cat "$prompt_file")
 
+    # 1. RAG 컨텍스트 검색 및 결합
+    local tldr_context=$(get_tldr_context "$input")
+    if [ -n "$tldr_context" ]; then
+        system_prompt="${system_prompt}
+
+아래 제공되는 해당 명령어의 공식 사용 템플릿(Context)을 참고하여 최적의 인자(Arguments) 조합을 완성하세요:
+${tldr_context}"
+    fi
+
     # WSL 호스트 IP 자동 탐지 및 셋업
     if [ "$OLLAMA_HOST" = "http://127.0.0.1:11434" ]; then
-        # WSL 환경인 경우 호스트 게이트웨이 주소 우선 탐색
         if grep -q microsoft /proc/version 2>/dev/null; then
             local host_ip=$(grep nameserver /etc/resolv.conf | awk '{print $2}')
             if [ -n "$host_ip" ]; then
@@ -41,4 +54,25 @@ query_ai() {
     local clean_response=$(echo "$response" | tr -d '\r' | perl -0777 -pe 's/Thinking\.\.\..*?\.\.\.done thinking\.\n?//gs' | perl -0777 -pe 's/<think>.*?<\/think>\n?//gs' | sed '/^\s*$/d')
     echo "$clean_response"
     return 0
+}
+
+# 쉘 위젯 통신을 위한 날것의 CMD 전용 질의 함수
+raw_query_ai() {
+    local input="$1"
+    local project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    
+    # 쿼리 수행
+    local ai_res=$(query_ai "$input" "${project_dir}/config/config.env" "${project_dir}/prompts/system_prompt.txt")
+    
+    # 첫 줄 추출
+    local first_line=$(echo "$ai_res" | head -n 1)
+    
+    # CMD: 접두사가 존재하면 값만 추출하여 출력, 아니면 입력어 그대로 출력 (대체)
+    if [[ "$first_line" =~ ^CMD: ]]; then
+        local cmd="${first_line#CMD:}"
+        echo "$cmd" | xargs
+    else
+        # CMD 매핑 실패 시 쉘 버퍼를 흐트러뜨리지 않기 위해 빈칸 대신 입력어 원본 유지
+        echo "$input"
+    fi
 }

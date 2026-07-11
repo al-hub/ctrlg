@@ -9,6 +9,22 @@ source "${PROJECT_DIR}/src/utils.sh"
 source "${PROJECT_DIR}/src/fast_path.sh"
 source "${PROJECT_DIR}/src/security.sh"
 source "${PROJECT_DIR}/src/ai_fallback.sh"
+source "${PROJECT_DIR}/src/error_analyzer.sh"
+
+# 1. 쉘 위젯용 --raw 통신 처리
+if [ "$1" = "--raw" ]; then
+    shift
+    raw_query_ai "$*"
+    exit 0
+fi
+
+# 2. 쉘 에러 훅용 --analyze-error 처리
+if [ "$1" = "--analyze-error" ]; then
+    shift
+    # 첫 번째 인자는 에러 명령어, 두 번째 인자는 exit status
+    analyze_command_error "$1" "$2"
+    exit 0
+fi
 
 input="$*"
 if [ -z "$input" ]; then
@@ -16,14 +32,14 @@ if [ -z "$input" ]; then
     exit 1
 fi
 
-# 1. Fast Path 매핑 시도
+# 3. Fast Path 매핑 시도
 fast_cmd=$(check_fast_path "$input")
 if [ $? -eq 0 ]; then
     eval "$fast_cmd"
     exit 0
 fi
 
-# 2. AI Fallback 호출
+# 4. AI Fallback 호출 (일반 수동 질문 루프)
 log_info "AI 분석 중... (${OLLAMA_MODEL})"
 ai_response=$(query_ai "$input" "${PROJECT_DIR}/config/config.env" "${PROJECT_DIR}/prompts/system_prompt.txt")
 

@@ -30,6 +30,95 @@ for dest in "$BIN_DEST" "$ALIAS_DEST"; do
     ln -s "${PROJECT_DIR}/bin/ctrlg" "$dest"
 done
 
-echo "✅ 설치가 완료되었습니다!"
-echo "이제 터미널에서 'ctrlg [자연어]' 또는 'cg [자연어]' 명령어를 바로 사용할 수 있습니다."
-echo "(만약 작동하지 않는다면 PATH에 '$HOME/.local/bin'이 등록되어 있는지 확인하세요.)"
+# 쉘 설정 결합 함수
+inject_shell_profile() {
+    local shell_name="$1"
+    local profile_path="$2"
+    local snippet=""
+
+    if [ ! -f "$profile_path" ]; then
+        return
+    fi
+
+    # 이미 설정이 삽입되어 있는지 체크
+    if grep -q "# ctrlg AI CLI Integration" "$profile_path"; then
+        echo "ℹ️  ${profile_path} 에 이미 ctrlg 쉘 통합 설정이 등록되어 있어 건너뜁니다."
+        return
+    fi
+
+    # 안전을 위한 백업 생성
+    cp "$profile_path" "${profile_path}.bak_ctrlg"
+    echo "💾 백업 생성 완료: ${profile_path}.bak_ctrlg"
+
+    if [ "$shell_name" = "zsh" ]; then
+        snippet="
+# ctrlg AI CLI Integration
+if command -v ctrlg &>/dev/null; then
+    # Zsh Ctrl+G 위젯 바인딩
+    ctrlg-widget() {
+        local query=\"\$BUFFER\"
+        if [ -n \"\$query\" ]; then
+            POSTDISPLAY=\" ... (AI 분석 중)\"
+            zle redisplay
+            local result=\$(ctrlg --raw \"\$query\")
+            BUFFER=\"\$result\"
+            CURSOR=\$\#BUFFER
+            POSTDISPLAY=\"\"
+            zle redisplay
+        fi
+    }
+    zle -N ctrlg-widget
+    bindkey '^g' ctrlg-widget
+
+    # Zsh 에러 감지 훅
+    ctrlg_error_hook() {
+        local last_exit=\$?
+        local last_cmd=\$(fc -ln -1 | xargs)
+        if [ \$last_exit -ne 0 ] && [[ \"\$last_cmd\" != ctrlg* ]] && [[ \"\$last_cmd\" != cg* ]]; then
+            ctrlg --analyze-error \"\$last_cmd\" \$last_exit
+        fi
+    }
+    # precmd_functions 배열에 에러 훅 추가
+    typeset -ag precmd_functions
+    if [[ \${precmd_functions[(r)ctrlg_error_hook]} != ctrlg_error_hook ]]; then
+        precmd_functions+=(ctrlg_error_hook)
+    fi
+fi"
+    elif [ "$shell_name" = "bash" ]; then
+        snippet="
+# ctrlg AI CLI Integration
+if command -v ctrlg &>/dev/null; then
+    # Bash Ctrl+G 위젯 바인딩
+    _ctrlg_bash_bind() {
+        local query=\"\$READLINE_LINE\"
+        if [ -n \"\$query\" ]; then
+            local result=\$(ctrlg --raw \"\$query\")
+            READLINE_LINE=\"\$result\"
+            READLINE_POINT=\$\{#READLINE_LINE\}
+        fi
+    }
+    bind -x '\"\C-g\": _ctrlg_bash_bind'
+
+    # Bash 에러 감지 훅
+    ctrlg_error_hook() {
+        local last_exit=\$?
+        local last_cmd=\$(history 1 | sed 's/^[ ]*[0-9]*[ ]*//')
+        if [ \$last_exit -ne 0 ] && [[ \"\$last_cmd\" != ctrlg* ]] && [[ \"\$last_cmd\" != cg* ]]; then
+            ctrlg --analyze-error \"\$last_cmd\" \$last_exit
+        fi
+    }
+    PROMPT_COMMAND=\"ctrlg_error_hook; \$PROMPT_COMMAND\"
+fi"
+    fi
+
+    # 프로필 파일에 설정 덧붙이기
+    echo "$snippet" >> "$profile_path"
+    echo "✨ ${profile_path} 에 쉘 통합이 완료되었습니다."
+}
+
+# 쉘 설정 결합 가동
+inject_shell_profile "zsh" "$HOME/.zshrc"
+inject_shell_profile "bash" "$HOME/.bashrc"
+
+echo "✅ 설치 및 쉘 통합 연동이 완료되었습니다!"
+echo "새로운 터미널 세션을 열거나 'source ~/.bashrc' (또는 ~/.zshrc)를 가동하여 'ctrlg'를 활성화하세요."
