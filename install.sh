@@ -76,20 +76,6 @@ if [ -f ${BIN_DEST} ]; then
     }
     zle -N ctrlg-widget
     bindkey '^g' ctrlg-widget
-
-    # Zsh 에러 감지 훅
-    ctrlg_error_hook() {
-        local last_exit=\$?
-        local last_cmd=\$(fc -ln -1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*\$//')
-        if [ \$last_exit -ne 0 ] && [[ \"\$last_cmd\" != ctrlg* ]] && [[ \"\$last_cmd\" != cg* ]]; then
-            ${BIN_DEST} --analyze-error \"\$last_cmd\" \$last_exit
-        fi
-    }
-    # precmd_functions 배열에 에러 훅 추가
-    typeset -ag precmd_functions
-    if [[ \${precmd_functions[(r)ctrlg_error_hook]} != ctrlg_error_hook ]]; then
-        precmd_functions+=(ctrlg_error_hook)
-    fi
 fi
 # ctrlg AI CLI Integration End"
     elif [ "$shell_name" = "bash" ]; then
@@ -112,16 +98,6 @@ if [ -f ${BIN_DEST} ]; then
         READLINE_POINT=\$\{#READLINE_LINE\}
     }
     bind -x '\"\C-g\": _ctrlg_bash_bind'
-
-    # Bash 에러 감지 훅
-    ctrlg_error_hook() {
-        local last_exit=\$?
-        local last_cmd=\$(history 1 | sed 's/^[ ]*[0-9]*[ ]*//')
-        if [ \$last_exit -ne 0 ] && [[ \"\$last_cmd\" != ctrlg* ]] && [[ \"\$last_cmd\" != cg* ]]; then
-            ${BIN_DEST} --analyze-error \"\$last_cmd\" \$last_exit
-        fi
-    }
-    PROMPT_COMMAND=\"ctrlg_error_hook; \$PROMPT_COMMAND\"
 fi
 # ctrlg AI CLI Integration End"
     fi
