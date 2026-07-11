@@ -62,20 +62,17 @@ if [ -f ${BIN_DEST} ]; then
     ctrlg-widget() {
         local query=\"\$BUFFER\"
         if [ -n \"\$query\" ]; then
-            # 자연어 질의를 히스토리에 저장
-            print -s \"\$query\"
-            # 단순 개행하여 원래 프롬프트를 화면에 남김
-            printf \"\\\\n\"
-            zle redisplay
-            # AI 추천 명령어 획득 및 버퍼 대입
+            # AI 추천 명령어 획득 (Stderr 로그는 화면에 자연스럽게 출력됨)
             local result=\$(${BIN_DEST} --raw \"\$query\")
             if [ -n \"\$result\" ]; then
-                BUFFER=\"\$result\"
+                # 다음 프롬프트 버퍼에 추천 명령어 채우기
+                print -z \"\$result\"
             else
-                BUFFER=\"\$query\"
+                print -z \"\$query\"
             fi
-            CURSOR=\$\#BUFFER
-            zle redisplay
+            # 현재 줄은 무작동 명령어(:)로 실행하여 에러 없이 화면/히스토리에 남김
+            BUFFER=\": \$query\"
+            zle accept-line
         fi
     }
     zle -N ctrlg-widget
