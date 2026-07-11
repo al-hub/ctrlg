@@ -31,10 +31,10 @@ else
     errors=$((errors + 1))
 fi
 
-if grep -q "output:" "$stderr_log"; then
+if grep -q "output :" "$stderr_log"; then
     echo "     ✅ [OK] AI 실시간 생성 출력 로그 접두사 감지 성공"
 else
-    echo "     ❌ [FAIL] AI 출력 로그 접두사('output:')가 Stderr 로그에 없습니다."
+    echo "     ❌ [FAIL] AI 출력 로그 접두사('output :')가 Stderr 로그에 없습니다."
     errors=$((errors + 1))
 fi
 

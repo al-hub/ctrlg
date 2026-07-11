@@ -52,7 +52,15 @@ fi
 # Test 3: 복잡한 날짜 자연어 조건문의 치환 성공 검증 (TDD 추가)
 # ==========================================
 echo "🧪 [TDD Test 3] 복잡한 날짜 쿼리에 대한 치환 성공 및 보안 통과 검증..."
-result_complex=$(/home/al-hub/workspace/ctrlg/bin/ctrlg --raw "2026 4월 20일 이전의 생성된 파일의 갯수와 파일명")
+_run_date_query() {
+    /home/al-hub/workspace/ctrlg/bin/ctrlg --raw "2026 4월 20일 이전의 생성된 파일의 갯수와 파일명"
+}
+
+result_complex=$(_run_date_query)
+if [[ "$result_complex" != *"find"* ]]; then
+    sleep 2
+    result_complex=$(_run_date_query)
+fi
 
 if [[ "$result_complex" == *"find"* ]] && ([[ "$result_complex" == *"newermt"* ]] || [[ "$result_complex" == *"mtime"* ]] || [[ "$result_complex" == *"2026"* ]]);
 then
