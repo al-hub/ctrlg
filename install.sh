@@ -18,6 +18,7 @@ done
 # 실행 권한 부여
 chmod +x "${PROJECT_DIR}/bin/ctrlg"
 chmod +x "${PROJECT_DIR}/src/"*.sh
+chmod +x "${PROJECT_DIR}/tests/"*.sh
 
 # ~/.local/bin 디렉토리 존재 확인
 mkdir -p "$HOME/.local/bin"
@@ -40,27 +41,29 @@ inject_shell_profile() {
         return
     fi
 
-    # 이미 설정이 삽입되어 있는지 체크
-    if grep -q "# ctrlg AI CLI Integration" "$profile_path"; then
-        echo "ℹ️  ${profile_path} 에 이미 ctrlg 쉘 통합 설정이 등록되어 있어 건너뜁니다."
-        return
-    fi
-
     # 안전을 위한 백업 생성
     cp "$profile_path" "${profile_path}.bak_ctrlg"
     echo "💾 백업 생성 완료: ${profile_path}.bak_ctrlg"
 
+    # 이미 설정이 삽입되어 있는지 체크하여 기존 블록 제거 (중복 삽입 방지 및 업데이트)
+    if grep -q "# ctrlg AI CLI Integration" "$profile_path"; then
+        # sed를 사용해 이전 통합 설정 블록 제거
+        sed -i '/# ctrlg AI CLI Integration/,/fi/d' "$profile_path"
+        # 연속된 빈 줄 정리
+        sed -i '/^$/N;/^\n$/D' "$profile_path"
+    fi
+
     if [ "$shell_name" = "zsh" ]; then
         snippet="
 # ctrlg AI CLI Integration
-if command -v ctrlg &>/dev/null; then
-    # Zsh Ctrl+G 위젯 바인딩
+if [ -f ${BIN_DEST} ]; then
+    # Zsh Ctrl+G 위젯 바인딩 (절대경로 호출 적용)
     ctrlg-widget() {
         local query=\"\$BUFFER\"
         if [ -n \"\$query\" ]; then
             POSTDISPLAY=\" ... (AI 분석 중)\"
             zle redisplay
-            local result=\$(ctrlg --raw \"\$query\")
+            local result=\$(${BIN_DEST} --raw \"\$query\")
             BUFFER=\"\$result\"
             CURSOR=\$\#BUFFER
             POSTDISPLAY=\"\"
@@ -75,7 +78,7 @@ if command -v ctrlg &>/dev/null; then
         local last_exit=\$?
         local last_cmd=\$(fc -ln -1 | xargs)
         if [ \$last_exit -ne 0 ] && [[ \"\$last_cmd\" != ctrlg* ]] && [[ \"\$last_cmd\" != cg* ]]; then
-            ctrlg --analyze-error \"\$last_cmd\" \$last_exit
+            ${BIN_DEST} --analyze-error \"\$last_cmd\" \$last_exit
         fi
     }
     # precmd_functions 배열에 에러 훅 추가
@@ -87,12 +90,12 @@ fi"
     elif [ "$shell_name" = "bash" ]; then
         snippet="
 # ctrlg AI CLI Integration
-if command -v ctrlg &>/dev/null; then
-    # Bash Ctrl+G 위젯 바인딩
+if [ -f ${BIN_DEST} ]; then
+    # Bash Ctrl+G 위젯 바인딩 (절대경로 호출 적용)
     _ctrlg_bash_bind() {
         local query=\"\$READLINE_LINE\"
         if [ -n \"\$query\" ]; then
-            local result=\$(ctrlg --raw \"\$query\")
+            local result=\$(${BIN_DEST} --raw \"\$query\")
             READLINE_LINE=\"\$result\"
             READLINE_POINT=\$\{#READLINE_LINE\}
         fi
@@ -104,7 +107,7 @@ if command -v ctrlg &>/dev/null; then
         local last_exit=\$?
         local last_cmd=\$(history 1 | sed 's/^[ ]*[0-9]*[ ]*//')
         if [ \$last_exit -ne 0 ] && [[ \"\$last_cmd\" != ctrlg* ]] && [[ \"\$last_cmd\" != cg* ]]; then
-            ctrlg --analyze-error \"\$last_cmd\" \$last_exit
+            ${BIN_DEST} --analyze-error \"\$last_cmd\" \$last_exit
         fi
     }
     PROMPT_COMMAND=\"ctrlg_error_hook; \$PROMPT_COMMAND\"
