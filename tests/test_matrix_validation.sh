@@ -27,8 +27,8 @@ for tc in "${TEST_CASES[@]}"; do
     
     echo "   - 실행 질의: '$query'"
     
-    # 치환 구동 (콜드 스타트 방어 25초 제한)
-    result=$(timeout 25s /home/al-hub/workspace/ctrlg/bin/ctrlg --raw "$query")
+    # 치환 구동 (콜드 스타트 방어 55초 제한)
+    result=$(timeout 55s /home/al-hub/workspace/ctrlg/bin/ctrlg --raw "$query")
     
     # 단언 검증 (Assert)
     local_fail=0

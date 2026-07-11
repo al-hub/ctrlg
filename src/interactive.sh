@@ -42,8 +42,9 @@ run_interactive_mode() {
             fzf_out=$(printf "$fzf_input" | fzf \
                 --height 15 \
                 --layout=reverse \
-                --header "🤖 ctrlg 질의 선택 (과거 질의 선택 또는 새로운 자연어 입력)" \
+                --header "🤖 ctrlg 질의 선택 (과거 이력 'Tab' 또는 'Ctrl+E'로 수정 편집 가능)" \
                 --query "$current_query" \
+                --bind "tab:replace-query,ctrl-e:replace-query" \
                 --print-query)
 
             local fzf_status=$?
