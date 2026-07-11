@@ -70,6 +70,11 @@ if ! _is_valid_date_result "$result_complex"; then
     echo "   - 1차 시도 결과 미흡('$result_complex'), 2초 대기 후 재시도..."
     sleep 2
     result_complex=$(_run_date_query)
+    if ! _is_valid_date_result "$result_complex"; then
+        echo "   - 2차 시도 결과 미흡('$result_complex'), 2초 대기 후 3차 재시도..."
+        sleep 2
+        result_complex=$(_run_date_query)
+    fi
 fi
 
 if _is_valid_date_result "$result_complex"; then

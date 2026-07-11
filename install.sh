@@ -64,8 +64,8 @@ if [ -f ${BIN_DEST} ]; then
         if [ -n \"\$query\" ]; then
             # 자연어 질의를 히스토리에 저장
             print -s \"\$query\"
-            # 현재 줄을 주석으로 변경하여 화면에 남김
-            printf \"\\\\r\\\\e[K# %s\\\\n\" \"\$query\"
+            # 단순 개행하여 원래 프롬프트를 화면에 남김
+            printf \"\\\\n\"
             zle redisplay
             # AI 추천 명령어 획득 및 버퍼 대입
             local result=\$(${BIN_DEST} --raw \"\$query\")
@@ -106,8 +106,8 @@ if [ -f ${BIN_DEST} ]; then
         if [ -n \"\$query\" ]; then
             # 자연어 질의를 히스토리에 저장
             history -s \"\$query\"
-            # 현재 줄을 주석으로 변경하여 화면에 남김
-            printf \"\\\\r\\\\e[K# %s\\\\n\" \"\$query\"
+            # 단순 개행하여 원래 프롬프트를 화면에 남김
+            printf \"\\\\n\"
             # AI 추천 명령어 획득 및 버퍼 대입
             local result=\$(${BIN_DEST} --raw \"\$query\")
             if [ -n \"\$result\" ]; then

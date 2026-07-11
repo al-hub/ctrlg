@@ -20,8 +20,8 @@ _test_bash_bind_widget() {
     
     local query="$READLINE_LINE"
     if [ -n "$query" ]; then
-        # 현재 줄을 주석으로 변경하여 화면에 남김
-        printf "\r\e[K# %s\n" "$query"
+        # 단순 개행하여 원래 프롬프트를 화면에 남김
+        printf "\n"
         # AI 추천 명령어 획득 및 버퍼 대입
         local result=$(${PROJECT_DIR}/bin/ctrlg --raw "$query" 2> /tmp/widget_test_stderr.log)
         if [ -n "$result" ]; then
@@ -69,6 +69,6 @@ if [ ! -f /tmp/widget_test_stderr.log ] || ! grep -q "cmd     :" /tmp/widget_tes
     exit 1
 fi
 
-echo "✅ [PASS] 쉘 위젯 구동 시 입력이 추천 명령어로 치환되고 화면에 질의 주석과 로그가 성공적으로 출력되었습니다."
+echo "✅ [PASS] 쉘 위젯 구동 시 입력이 추천 명령어로 치환되고 화면에 원래 질의 프롬프트와 로그가 성공적으로 출력되었습니다."
 rm -f /tmp/widget_test_stderr.log
 exit 0
