@@ -16,9 +16,9 @@ inject_shell_profile "bash" "$MOCK_BASHRC" &>/dev/null
 # 주입된 결과 파일 내용 읽기
 injected_content=$(cat "$MOCK_BASHRC")
 
-# 1. 쉘 위젯 로딩을 위한 단일 개행이 스니펫에 주입되어 있는지 단언
-if [[ "$injected_content" != *'printf "\\n"'* ]]; then
-    echo "❌ [FAIL] 로그 출력 공간 확보를 위한 개행 코드가 쉘 프로필 주입 코드 내에 누락되었습니다!"
+# 1. 쉘 위젯 로딩 및 자연어 주석 처리를 위한 개행/주석 제어 코드가 주입되어 있는지 단언
+if [[ "$injected_content" != *'printf'* ]] || [[ "$injected_content" != *'# %s'* ]]; then
+    echo "❌ [FAIL] 자연어 질의 보존 및 로그 출력을 위한 화면 제어 코드(printf)가 주입 코드 내에 누락되었습니다!"
     rm -f "$MOCK_BASHRC"
     exit 1
 fi

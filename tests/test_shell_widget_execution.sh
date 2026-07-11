@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# 실제 쉘 위젯 바인딩 함수 실행 시 롤백(원복) 현상을 정밀 검출하는 TDD 테스트
+# 실제 쉘 위젯 바인딩 함수 실행 시 치환 및 원래 질의 보존 현상을 정밀 검출하는 TDD 테스트
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "🧪 [TDD Test] 실제 쉘 위젯 함수(_ctrlg_bash_bind) 실행 및 치환 성공 여부 최종 검증..."
@@ -13,7 +13,6 @@ if [ $? -ne 0 ]; then
 fi
 
 # 2. 실제 .bashrc 에 주입되는 동일한 스펙의 가상 위젯 바인딩 함수 정의
-# 이제 위젯은 입력을 치환하지 않고 그대로 보존하므로, READLINE_LINE이 원본 질의를 유지하는지 확인합니다.
 _test_bash_bind_widget() {
     # 사용자 입력어 정의 (실제 쉘 입력창 상태 모방)
     READLINE_LINE="2026 4월 20일 이전의 생성된 파일의 갯수와 파일명"
@@ -21,12 +20,19 @@ _test_bash_bind_widget() {
     
     local query="$READLINE_LINE"
     if [ -n "$query" ]; then
-        printf "\n"
-        # Stderr 로그 검증을 위해 파일로 에러 출력 기록
-        ${PROJECT_DIR}/bin/ctrlg --raw "$query" 2> /tmp/widget_test_stderr.log >/dev/null
+        # 현재 줄을 주석으로 변경하여 화면에 남김
+        printf "\r\e[K# %s\n" "$query"
+        # AI 추천 명령어 획득 및 버퍼 대입
+        local result=$(${PROJECT_DIR}/bin/ctrlg --raw "$query" 2> /tmp/widget_test_stderr.log)
+        if [ -n "$result" ]; then
+            READLINE_LINE="$result"
+        else
+            READLINE_LINE="$query"
+        fi
+        READLINE_POINT=${#READLINE_LINE}
     fi
     
-    # 최종 결과물 리턴 (치환되지 않고 원본 그대로 반환되어야 함)
+    # 최종 결과물 리턴 (추천 명령어로 치환되어야 함)
     echo "$READLINE_LINE"
 }
 
@@ -39,17 +45,16 @@ _run_widget() {
 widget_result=$(_run_widget | xargs)
 
 # 1차 시도에서 혹시 모를 로딩 문제로 빈 로그일 경우 1회 워밍 후 재시도
-if [ ! -f /tmp/widget_test_stderr.log ] || ! grep -q "cmd     :" /tmp/widget_test_stderr.log; then
-    echo "   - 1차 구동 결과 로그 미흡, 2초 대기 후 워밍업 재시도..."
+if [[ "$widget_result" != *"find"* ]]; then
+    echo "   - 1차 구동 결과 미흡, 2초 대기 후 워밍업 재시도..."
     sleep 2
     widget_result=$(_run_widget | xargs)
 fi
 
 # 4. 검증 (Assert)
-# A. 프롬프트 버퍼(입력)가 치환되지 않고 그대로 남았는지 단언
-EXPECTED_QUERY="2026 4월 20일 이전의 생성된 파일의 갯수와 파일명"
-if [ "$widget_result" != "$EXPECTED_QUERY" ]; then
-    echo "❌ [FAIL] 쉘 위젯 구동 후 입력 프롬프트가 보존되지 않고 변경되었습니다!"
+# A. 프롬프트 버퍼(입력)가 AI 추천 명령어로 올바르게 치환되었는지 단언
+if [[ "$widget_result" != *"find"* ]]; then
+    echo "❌ [FAIL] 쉘 위젯 구동 후 입력 프롬프트가 AI 추천 명령어로 치환되지 못했습니다!"
     echo "   - 현재 결과물: '$widget_result'"
     exit 1
 fi
@@ -64,6 +69,6 @@ if [ ! -f /tmp/widget_test_stderr.log ] || ! grep -q "cmd     :" /tmp/widget_tes
     exit 1
 fi
 
-echo "✅ [PASS] 쉘 위젯 구동 시 입력이 그대로 남고 다음 줄에 결과가 성공적으로 로깅되었습니다."
+echo "✅ [PASS] 쉘 위젯 구동 시 입력이 추천 명령어로 치환되고 화면에 질의 주석과 로그가 성공적으로 출력되었습니다."
 rm -f /tmp/widget_test_stderr.log
 exit 0
