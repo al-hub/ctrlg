@@ -16,7 +16,23 @@ query_ai() {
     local system_prompt=$(cat "$prompt_file")
 
     # 1. RAG 컨텍스트 검색 및 결합
+    # 서브쉘 스코프에 의한 변수 소멸 방지를 위해 부모 쉘에서 RAG 매칭 목록 직접 수집
+    local tldr_path="${project_dir}/resources/tldr"
     export LAST_RAG_MATCHES=""
+    for word in $input; do
+        local lower_word=$(echo "$word" | tr '[:upper:]' '[:lower:]' | tr -d '[:punct:]')
+        case "$lower_word" in
+            하위폴더|디렉토리|검색|찾기|파일명|확장자) lower_word="find" ;;
+            갯수|개수|라인수|라인|카운트) lower_word="wc" ;;
+            압축|zip) lower_word="zip" ;;
+        esac
+        if [ -n "$lower_word" ] && [ -f "${tldr_path}/${lower_word}.md" ]; then
+            if [[ "$LAST_RAG_MATCHES" != *"${lower_word}.md"* ]]; then
+                LAST_RAG_MATCHES="${LAST_RAG_MATCHES}${lower_word}.md "
+            fi
+        fi
+    done
+
     local tldr_context=$(get_tldr_context "$input")
     if [ -n "$tldr_context" ]; then
         system_prompt="${system_prompt}
