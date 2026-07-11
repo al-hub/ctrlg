@@ -9,8 +9,8 @@ get_tldr_context() {
     
     # 입력어에서 특수기호나 단어를 분리하여 매칭되는 가이드북을 찾음
     for word in $query; do
-        # 소문자 변환 및 문자열 정제 (더 넓은 정제 필터링)
-        local lower_word=$(echo "$word" | tr '[:upper:]' '[:lower:]' | tr -d '.-*?[]()"'\'')
+        # 소문자 변환 및 모든 특수기호 정제 ([:punct:] 기호 클래스 적용으로 구문오류 원천 방지)
+        local lower_word=$(echo "$word" | tr '[:upper:]' '[:lower:]' | tr -d '[:punct:]')
         
         # 한글 유의어 기반 RAG 가이드 매칭 보정
         case "$lower_word" in
