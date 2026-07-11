@@ -16,6 +16,7 @@ query_ai() {
     local system_prompt=$(cat "$prompt_file")
 
     # 1. RAG 컨텍스트 검색 및 결합
+    export LAST_RAG_MATCHES=""
     local tldr_context=$(get_tldr_context "$input")
     if [ -n "$tldr_context" ]; then
         system_prompt="${system_prompt}
@@ -24,9 +25,18 @@ query_ai() {
 ${tldr_context}"
     fi
 
+    # RAG 매칭 완료 피드백 (매칭된 파일 데이터 노출)
+    if [ -n "$LAST_RAG_MATCHES" ]; then
+        local clean_matches=$(echo "$LAST_RAG_MATCHES" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        printf "\e[1A\e[2K🔍 ctrlg: RAG 지식 매칭 완료 [tldr: %s]\n" "$clean_matches" >&2
+        sleep 0.8
+    fi
+
     # Ollama 호스트 최적 경로 탐색 및 전환 (WSL 호스트 IP 대응 포함)
     setup_ollama_host
-    printf "\e[1A\e[2K🔍 ctrlg: AI 분석 및 명령어 추론 진행 중...\n" >&2
+    
+    # AI 모델 가동 및 연결 데이터 노출
+    printf "\e[1A\e[2K🔍 ctrlg: AI 추론 실행 중... [model: ${OLLAMA_MODEL} @ ${OLLAMA_HOST}]\n" >&2
 
     local response=""
     if command -v curl &>/dev/null && command -v jq &>/dev/null; then
@@ -38,41 +48,18 @@ user: ${input}" \
             --argjson stream true \
             '{model: $model, prompt: $prompt, stream: $stream}')
 
-        # 2-1단계: 첫 토큰이 도달하기 전까지 백그라운드로 닷 로딩 애니메이션 구동 (비동기)
-        (
-            local dots=""
-            while true; do
-                dots="${dots}."
-                if [ ${#dots} -gt 3 ]; then dots=""; fi
-                printf "\r\e[2K🔍 ctrlg: AI 추천 명령어 분석 및 생성 중%s   " "$dots" >&2
-                sleep 0.5
-            done
-        ) &
-        local loader_pid=$!
-
-        local first_token=true
+        # 2단계 피드백 개시 (실시간 명령어 생성 상태 연출)
+        printf "🔍 ctrlg: AI 추천 명령어 실시간 생성 중 ➡️  " >&2
 
         # curl --no-buffer와 프로세스 치환으로 실시간 1토큰 단위 렌더링 스트리밍
         while read -r line; do
             [ -z "$line" ] && continue
             local token=$(echo "$line" | jq -r '.response' 2>/dev/null)
             if [ -n "$token" ] && [ "$token" != "null" ]; then
-                # 첫 번째 토큰 도착 즉시 백그라운드 비동기 로더 프로세스 강제 종료
-                if [ "$first_token" = true ]; then
-                    kill "$loader_pid" &>/dev/null
-                    wait "$loader_pid" 2>/dev/null
-                    # 실시간 명령어 생성 갱신 모드로 헤더 전환
-                    printf "\r\e[2K🔍 ctrlg: AI 추천 명령어 실시간 생성 중 ➡️  " >&2
-                    first_token=false
-                fi
                 response="${response}${token}"
                 printf "%s" "$token" >&2
             fi
         done < <(curl -s -N --connect-timeout 3 --max-time 25 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data")
-
-        # 안전 장치: 루프 종료 후 비동기 로더 강제 종료 상태 보장
-        kill "$loader_pid" &>/dev/null
-        wait "$loader_pid" 2>/dev/null
     else
         response=$(ollama run "${OLLAMA_MODEL}" "System: ${system_prompt}\nUser: ${input}" | sed '/^\s*$/d')
     fi
@@ -102,10 +89,11 @@ raw_query_ai() {
         return 0
     fi
     
-    # 1단계 피드백: 연결 상태 체크
-    printf "🔍 ctrlg: Ollama 연결 상태 체크 중...\n" >&2
+    # 1단계 피드백: 연결 상태 체크 (호스트 주소 노출)
+    source "${project_dir}/config/config.env"
+    printf "🔍 ctrlg: Ollama 호스트 탐색 중... [http://127.0.0.1:11434]\n" >&2
     
-    # 쿼리 수행 (2단계 피드백은 query_ai 진입 직후 수행됨)
+    # 쿼리 수행
     local ai_res=$(query_ai "$input" "${project_dir}/config/config.env" "${project_dir}/prompts/system_prompt.txt")
     
     # 첫 줄 추출
@@ -116,8 +104,8 @@ raw_query_ai() {
         local cmd="${first_line#CMD:}"
         cmd=$(echo "$cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
         
-        # 3단계 피드백: 보안성 검증
-        printf "\e[1A\e[2K🔍 ctrlg: 도출된 명령어 보안 검증 중...\n" >&2
+        # 3단계 피드백: 보안성 검증 (보안 검사 대상 명령어 노출)
+        printf "\e[1A\e[2K🔍 ctrlg: 보안성 검증 중... [cmd: %s]\n" "$cmd" >&2
         
         # 위젯용 보안성 검사 가동
         source "${project_dir}/src/security.sh"

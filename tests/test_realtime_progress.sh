@@ -37,7 +37,7 @@ check_step() {
     fi
 }
 
-check_step "연결" "1단계 (Ollama 헬스체크 및 연결)"
+check_step "탐색" "1단계 (Ollama 헬스체크 및 연결)"
 check_step "추론" "2단계 (AI 분석 및 명령어 추론)"
 check_step "보안" "3단계 (도출된 명령어 보안성 검사)"
 

@@ -29,6 +29,7 @@ get_tldr_context() {
             # 중복 가이드 텍스트 삽입 방지 검사
             if [[ "$context" != *"$lower_word"* ]]; then
                 context="${context}$(cat "${tldr_path}/${lower_word}.md" | head -n 25)$(printf "\n\n")"
+                LAST_RAG_MATCHES="${LAST_RAG_MATCHES}${lower_word}.md "
             fi
         fi
     done
