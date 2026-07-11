@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
-# 절대 경로 기준 프로젝트 디렉토리 탐색
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# 심볼릭 링크의 실제 물리 경로 추적
+REAL_PATH="${BASH_SOURCE[0]}"
+if [ -L "$REAL_PATH" ]; then
+    REAL_PATH=$(readlink -f "$REAL_PATH")
+fi
+PROJECT_DIR="$(cd "$(dirname "$REAL_PATH")/.." && pwd)"
 
 # 모듈 로드
 source "${PROJECT_DIR}/config/config.env"
