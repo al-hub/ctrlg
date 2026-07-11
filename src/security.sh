@@ -6,8 +6,8 @@ validate_command() {
     local cmd="$1"
     local whitelist="$2"
 
-    # 1단계: 위험한 핵심 쉘 인젝션/삭제 패턴 차단
-    if echo "$cmd" | grep -qE 'rm|dd|mv|:|;|sudo|/etc/|sh -c|&|`|\$\(|>'; then
+    # 1단계: 위험한 핵심 쉘 인젝션/삭제 패턴 차단 (단어 경계 \b 적용으로 오차단 방지)
+    if echo "$cmd" | grep -qE '\b(rm|dd|mv|sudo|sh)\b|:|;|/etc/|&|`|\$\(|>'; then
         return 1
     fi
 
