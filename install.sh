@@ -61,20 +61,18 @@ if [ -f ${BIN_DEST} ]; then
     # Zsh Ctrl+G 위젯 바인딩 (절대경로 및 실시간 피드백 적용)
     ctrlg-widget() {
         local query=\"\$BUFFER\"
-        if [ -n \"\$query\" ]; then
-            # Zsh 에디터에게 비동기 출력이 있음을 사전 통보 (원래 질의 보존 핵심)
-            zle -I
-            # 단순 개행하여 원래 프롬프트를 화면에 남김
-            printf \"\\\\n\"
-            # AI 추천 명령어 획득 및 버퍼 치환
-            local result=\$(${BIN_DEST} --raw \"\$query\")
-            if [ -n \"\$result\" ]; then
-                BUFFER=\"\$result\"
-            else
-                BUFFER=\"\$query\"
-            fi
-            CURSOR=\$\#BUFFER
+        # Zsh Zle에게 비동기 출력이 있음을 알림 (에디터 일시 중지)
+        zle -I
+        # 대화형 FZF 화면 실행 (결과는 stdout으로 받고, UI는 stderr로 나감)
+        local result=\$(${BIN_DEST} --interactive \"\$query\")
+        # 결과가 있으면 치환, 없으면 원래 입력(query) 보존
+        if [ -n \"\$result\" ]; then
+            BUFFER=\"\$result\"
+        else
+            BUFFER=\"\$query\"
         fi
+        CURSOR=\$\#BUFFER
+        zle redisplay
     }
     zle -N ctrlg-widget
     bindkey '^g' ctrlg-widget
@@ -101,20 +99,17 @@ if [ -f ${BIN_DEST} ]; then
     # Bash Ctrl+G 위젯 바인딩 (절대경로 및 실시간 피드백 적용)
     _ctrlg_bash_bind() {
         local query=\"\$READLINE_LINE\"
-        if [ -n \"\$query\" ]; then
-            # 자연어 질의를 히스토리에 저장
-            history -s \"\$query\"
-            # 단순 개행하여 원래 프롬프트를 화면에 남김
-            printf \"\\\\n\"
-            # AI 추천 명령어 획득 및 버퍼 대입
-            local result=\$(${BIN_DEST} --raw \"\$query\")
-            if [ -n \"\$result\" ]; then
-                READLINE_LINE=\"\$result\"
-            else
-                READLINE_LINE=\"\$query\"
-            fi
-            READLINE_POINT=\$\{#READLINE_LINE\}
+        # 자연어 질의를 히스토리에 저장
+        history -s \"\$query\"
+        # 대화형 FZF 화면 실행 (결과는 stdout으로 받고, UI는 stderr로 나감)
+        local result=\$(${BIN_DEST} --interactive \"\$query\")
+        # 결과가 있으면 치환, 없으면 원래 입력(query) 보존
+        if [ -n \"\$result\" ]; then
+            READLINE_LINE=\"\$result\"
+        else
+            READLINE_LINE=\"\$query\"
         fi
+        READLINE_POINT=\$\{#READLINE_LINE\}
     }
     bind -x '\"\C-g\": _ctrlg_bash_bind'
 

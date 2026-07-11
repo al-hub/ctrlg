@@ -15,10 +15,19 @@ source "${PROJECT_DIR}/src/security.sh"
 source "${PROJECT_DIR}/src/ai_fallback.sh"
 source "${PROJECT_DIR}/src/error_analyzer.sh"
 
+source "${PROJECT_DIR}/src/interactive.sh"
+
 # 1. 쉘 위젯용 --raw 통신 처리
 if [ "$1" = "--raw" ]; then
     shift
     raw_query_ai "$*"
+    exit 0
+fi
+
+# 1.5 쉘 위젯용 대화형 FZF 모드 처리
+if [ "$1" = "--interactive" ]; then
+    shift
+    run_interactive_mode "$*"
     exit 0
 fi
 
