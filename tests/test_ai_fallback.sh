@@ -1,27 +1,51 @@
 #!/usr/bin/env bash
 
-# AI Fallback 타임아웃 무한 대기(Hang) 검출 테스트
+# AI Fallback 타임아웃 무한 대기(Hang) 및 성공적 변환 무결성 TDD 검증
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# 존재하지 않는 사설 IP 주소 (RFC 5737에 따른 테스트 전용 대역)
-# 이 IP 주소로 통신을 시도하면 라우팅이 불가능하여 타임아웃 대기(Hang) 상태가 유발됩니다.
+# ==========================================
+# Test 1: 무반응 호스트 대기(Hang) 감지 테스트
+# ==========================================
 TEST_DUMMY_HOST="http://192.0.2.1:11434"
-
-echo "🧪 [TDD 테스트] Ollama 호스트 무반응 대기(Hang) 강제 검출 시도..."
-
-# 임시 환경변수로 OLLAMA_HOST를 무반응 IP로 세팅
+echo "🧪 [TDD Test 1] Ollama 호스트 무반응 대기(Hang) 감지 시도..."
 export OLLAMA_HOST="$TEST_DUMMY_HOST"
 
-# 4초 타임아웃 제어 하에 ctrlg 호출
-# 만약 ctrlg 내부 curl에 타임아웃 제어 장치가 없다면, 4초 동안 응답하지 못하고 timeout 명령어에 의해 강제 종료(Exit Code 124)될 것입니다.
-# 만약 내부에서 빠르게 타임아웃을 먹고 에러를 내며 탈출했다면 exit code는 124가 아닐 것입니다.
 timeout 4s /home/al-hub/workspace/ctrlg/bin/ctrlg --raw "하위폴더갯수"
 status=$?
 
 if [ $status -eq 124 ]; then
-    echo "❌ [검출 완료] 서버가 무반응일 때, ctrlg가 무한 대기(Hang)에 빠지는 버그가 발견되었습니다!"
+    echo "❌ [Test 1 FAIL] 서버 무반응 시 무한 대기에 빠지는 버그가 발견되었습니다!"
     exit 1
-else
-    echo "✅ [정상] 무반응 서버에 대해 적절한 타임아웃 처리로 즉시 탈출 완료 (종료 코드: $status)"
+fi
+echo "✅ [Test 1 PASS] 무반응 서버에 대해 대기하지 않고 즉시 탈출 완료"
+
+
+# ==========================================
+# Test 2: 정상 서버 가동 환경에서의 실제 치환 성공 검증
+# ==========================================
+echo "🧪 [TDD Test 2] 정상 Ollama 환경에서의 명령어 치환 성공 여부 검증..."
+
+# 로컬 Ollama 헬스체크 (정상적으로 떠있는지 확인)
+# 127.0.0.1:11434 포트가 켜져 있는지 검사합니다.
+curl -s --connect-timeout 2 http://127.0.0.1:11434/api/tags &>/dev/null
+if [ $? -ne 0 ]; then
+    echo "⚠️  [Test 2 SKIP] 로컬 Ollama 서버(127.0.0.1:11434)가 꺼져 있어 성공 테스트를 건너뜁니다."
     exit 0
+fi
+
+# 정상 로컬 호스트로 복구 설정
+export OLLAMA_HOST="http://127.0.0.1:11434"
+
+# 치환 가동
+result=$(/home/al-hub/workspace/ctrlg/bin/ctrlg --raw "하위폴더갯수")
+
+# 결과물 단언(Assert)
+# '하위폴더갯수'에 대해 성공적으로 'find' 명령어가 도출되었는지 확인합니다.
+# 만약 통신이 실패했거나 오작동하여 원본 문자열인 '하위폴더갯수'가 그대로 반환되었다면 테스트를 실패 처리합니다.
+if [[ "$result" == *"find"* ]]; then
+    echo "✅ [Test 2 PASS] 명령어 치환 성공: '$result'"
+    exit 0
+else
+    echo "❌ [Test 2 FAIL] 실제 AI 치환이 작동하지 않고 원본이 유지되었습니다! 결과: '$result'"
+    exit 1
 fi
