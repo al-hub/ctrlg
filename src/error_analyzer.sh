@@ -26,8 +26,8 @@ user: 에러 해결책을 알려줘" \
             --argjson stream false \
             '{model: $model, prompt: $prompt, stream: $stream}')
 
-        # 연결 타임아웃 3초, 최대 수행 시간 10초 제한 추가 (무한 대기 방지)
-        response=$(curl -s --connect-timeout 3 --max-time 10 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data" | jq -r '.response' 2>/dev/null | sed '/^\s*$/d')
+        # 연결 타임아웃 3초, 최대 수행 시간 25초 제한 추가 (콜드 스타트 대기 시간 확보)
+        response=$(curl -s --connect-timeout 3 --max-time 25 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data" | jq -r '.response' 2>/dev/null | sed '/^\s*$/d')
     else
         response=$(ollama run "${OLLAMA_MODEL}" "System: ${system_prompt}\nUser: 에러 해결책을 알려줘" | sed '/^\s*$/d')
     fi
