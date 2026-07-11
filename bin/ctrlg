@@ -31,6 +31,9 @@ if [ "$1" = "--analyze-error" ]; then
 fi
 
 input="$*"
+if [ -z "$input" ] && [ ! -t 0 ]; then
+    input=$(cat)
+fi
 if [ -z "$input" ]; then
     log_warn "사용법: ctrlg [질문 또는 명령어 요청]"
     exit 1

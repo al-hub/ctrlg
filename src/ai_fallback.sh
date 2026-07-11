@@ -123,13 +123,13 @@ user: ${input}" \
                     wait "$heartbeat_pid" 2>/dev/null
                     local elapsed=$(( SECONDS - _ttft_start ))
                     printf "[ctrlg]  ttft    : %ds\n" "$elapsed" >&2
-                    printf "[ctrlg]  output  : " >&2
+                    printf "[ctrlg]  output : " >&2
                     first_token=false
                 fi
                 response="${response}${token}"
                 printf "%s" "$token" >&2
             fi
-        done < <(curl -s -N --connect-timeout 3 --max-time 25 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data")
+        done < <(curl -s -N --connect-timeout 3 --max-time 35 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data")
 
         # 안전 장치: curl 종료 후 컨텍스트 스트리머 잔존 시 강제 종료
         kill "$heartbeat_pid" &>/dev/null
@@ -155,6 +155,10 @@ user: ${input}" \
 # 쉘 위젯 통신을 위한 날것의 CMD 전용 질의 함수
 raw_query_ai() {
     local input="$1"
+    if [ -z "$input" ]; then
+        echo ""
+        return 1
+    fi
     local project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     
     # Fast Path 모듈 로드 및 시도 (선언과 대입 분리로 종료 코드 덮어쓰기 방지)
@@ -171,31 +175,51 @@ raw_query_ai() {
     printf "\n[ctrlg] query  : %s\n" "$input" >&2
     printf "[ctrlg]  host  : http://127.0.0.1:11434 (탐색 중...)\n" >&2
     
-    # 쿼리 수행
+    # 쿼리 수행 (CMD: 누락 대비 1회 재시도, 단 빈 응답/타임아웃은 제외)
     local ai_res=$(query_ai "$input" "${project_dir}/config/config.env" "${project_dir}/prompts/system_prompt.txt")
-    
-    # 전체 응답에서 CMD: 접두사 행을 탐색 (모델이 사고 텍스트를 먼저 뱉어도 파싱 가능)
-    local cmd_line=$(echo "$ai_res" | grep -m1 "^CMD:")
-    
+    local cmd_line=$(echo "$ai_res" | grep -m1 -i "^CMD:")
+    if [ -z "$cmd_line" ] && [ -n "$ai_res" ]; then
+        ai_res=$(query_ai "$input" "${project_dir}/config/config.env" "${project_dir}/prompts/system_prompt.txt")
+        cmd_line=$(echo "$ai_res" | grep -m1 -i "^CMD:")
+    fi
+
+    # 응답 파싱 (CMD:, 백틱 순차 시도)
+    local cmd=""
     if [ -n "$cmd_line" ]; then
-        local cmd="${cmd_line#CMD:}"
-        # 백틱이나 마크다운 코드블록이 포함된 잔재 제거 후 공백 트리밍
-        cmd=$(echo "$cmd" | sed 's/`.*$//' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-        
+        cmd=$(echo "$cmd_line" | sed -E 's/^[cC][mM][dD]://i')
+        cmd=$(echo "$cmd" | sed -E 's/[cC][mM][dD]:.*$//' | sed 's/`.*$//' | xargs)
+    else
+        local backtick_cmd=$(echo "$ai_res" | grep -oP '`[^`]+`' | head -1 | tr -d '`')
+        if [ -n "$backtick_cmd" ]; then
+            cmd="$backtick_cmd"
+        fi
+    fi
+
+    if [ -n "$cmd" ]; then
         # 보안 검증 로그
         printf "[ctrlg]  security: validating [%s]\n" "$cmd" >&2
-        
+
         source "${project_dir}/src/security.sh"
         validate_command "$cmd" "$WHITELIST_COMMANDS"
         if [ $? -eq 0 ]; then
-            printf "[ctrlg]  result  : OK -> substituted\n" >&2
+            # 최종 명령어를 구분선과 함께 명확히 출력 (다음 줄 결과 표시 UX)
+            printf "[ctrlg]  --\n" >&2
+            printf "[ctrlg]  cmd     : %s\n" "$cmd" >&2
+            printf "[ctrlg]  --\n" >&2
             echo "$cmd"
         else
-            printf "[ctrlg]  result  : BLOCKED (security risk detected, keeping original)\n" >&2
-            echo "$input"
+            printf "[ctrlg]  result  : BLOCKED (security risk detected)\n" >&2
+            echo ""
         fi
     else
-        printf "[ctrlg]  result  : FAIL (no CMD prefix, keeping original)\n" >&2
-        echo "$input"
+        # CMD: 없는 자연어 응답 → 빈 출력 방지 (질문형 지원)
+        local clean_response=$(echo "$ai_res" | tr -d '\r' | perl -0777 -pe 's/Thinking\.\.\..*?\.\.\.done thinking\.\n?//gs' | perl -0777 -pe 's/<think>.*?<\/think>\n?//gs' | sed '/^\s*$/d')
+        if [ -n "$clean_response" ]; then
+            printf "[ctrlg]  result  : NATURAL_LANG\n" >&2
+            echo "$clean_response"
+        else
+            printf "[ctrlg]  result  : EMPTY\n" >&2
+            echo ""
+        fi
     fi
 }

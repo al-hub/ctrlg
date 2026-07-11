@@ -62,10 +62,16 @@ if [ -f ${BIN_DEST} ]; then
     ctrlg-widget() {
         local query=\"\$BUFFER\"
         if [ -n \"\$query\" ]; then
+            # 자연어 질의를 히스토리에 먼저 저장
+            print -s \"\$query\"
             printf \"\\\\n\"
             zle redisplay
             local result=\$(${BIN_DEST} --raw \"\$query\")
-            BUFFER=\"\$result\"
+            if [ -n \"\$result\" ]; then
+                BUFFER=\"\$result\"
+            else
+                BUFFER=\"\$query\"
+            fi
             CURSOR=\$\#BUFFER
             zle redisplay
         fi
@@ -96,9 +102,15 @@ if [ -f ${BIN_DEST} ]; then
     _ctrlg_bash_bind() {
         local query=\"\$READLINE_LINE\"
         if [ -n \"\$query\" ]; then
+            # 자연어 질의를 히스토리에 먼저 저장
+            history -s \"\$query\"
             printf \"\\\\n\"
             local result=\$(${BIN_DEST} --raw \"\$query\")
-            READLINE_LINE=\"\$result\"
+            if [ -n \"\$result\" ]; then
+                READLINE_LINE=\"\$result\"
+            else
+                READLINE_LINE=\"\$query\"
+            fi
             READLINE_POINT=\$\{#READLINE_LINE\}
         fi
     }

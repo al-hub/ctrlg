@@ -11,8 +11,8 @@ check_fast_path() {
     fi
 
     case "$input" in
-        *현재*위치*|*현재*폴더*|*현재*디렉토리*|*pwd*)      { echo "pwd"; return 0; } ;;
-        *하위*목록*|*현재*목록*|*ls*|*파일*목록*)       { echo "ls -la"; return 0; } ;;
+        *현재*위치*|*현재*디렉토리*|*pwd*)                    { echo "pwd"; return 0; } ;;
+        *현재*폴더*목록*|*현재*폴더*리스트*|*하위*목록*|*현재*목록*|*ls*|*파일*목록*) { echo "ls -la"; return 0; } ;;
         *디스크*용량*|*df*|*저장*공간*)                 { echo "df -h"; return 0; } ;;
         *디스크*사용량*|*du*|*폴더*용량*)               { echo "du -sh . 2>/dev/null || du -sh"; return 0; } ;;
         *시각*|*date*|*시간*)                           { echo "date"; return 0; } ;;
