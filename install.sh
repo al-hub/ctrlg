@@ -62,17 +62,18 @@ if [ -f ${BIN_DEST} ]; then
     ctrlg-widget() {
         local query=\"\$BUFFER\"
         if [ -n \"\$query\" ]; then
-            # AI 추천 명령어 획득 (Stderr 로그는 화면에 자연스럽게 출력됨)
+            # Zsh 에디터에게 비동기 출력이 있음을 사전 통보 (원래 질의 보존 핵심)
+            zle -I
+            # 단순 개행하여 원래 프롬프트를 화면에 남김
+            printf \"\\\\n\"
+            # AI 추천 명령어 획득 및 버퍼 치환
             local result=\$(${BIN_DEST} --raw \"\$query\")
             if [ -n \"\$result\" ]; then
-                # 다음 프롬프트 버퍼에 추천 명령어 채우기
-                print -z \"\$result\"
+                BUFFER=\"\$result\"
             else
-                print -z \"\$query\"
+                BUFFER=\"\$query\"
             fi
-            # 현재 줄은 무작동 명령어(:)로 실행하여 에러 없이 화면/히스토리에 남김
-            BUFFER=\": \$query\"
-            zle accept-line
+            CURSOR=\$\#BUFFER
         fi
     }
     zle -N ctrlg-widget
