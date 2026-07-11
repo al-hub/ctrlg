@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# 실제 쉘 위젯 바인딩 함수 실행 시 치환 및 원래 질의 보존 현상을 정밀 검출하는 TDD 테스트
+# 실제 쉘 위젯 바인딩 함수 실행 시 대화형 모드(FZF)를 거쳐 치환이 정상 처리되는지 검증하는 TDD 테스트
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "🧪 [TDD Test] 실제 쉘 위젯 함수(_ctrlg_bash_bind) 실행 및 치환 성공 여부 최종 검증..."
@@ -19,18 +19,53 @@ _test_bash_bind_widget() {
     READLINE_POINT=${#READLINE_LINE}
     
     local query="$READLINE_LINE"
-    if [ -n "$query" ]; then
-        # 단순 개행하여 원래 프롬프트를 화면에 남김
-        printf "\n"
-        # AI 추천 명령어 획득 및 버퍼 대입
-        local result=$(${PROJECT_DIR}/bin/ctrlg --raw "$query" 2> /tmp/widget_test_stderr.log)
-        if [ -n "$result" ]; then
-            READLINE_LINE="$result"
+    
+    # [TDD 핵심] 대화형 모드(FZF)의 자동 응답을 시뮬레이션하기 위해 가상 fzf 함수를 주입(Mocking)합니다.
+    fzf() {
+        local q=""
+        local has_print_query=false
+        for arg in "$@"; do
+            if [ "$arg" = "--print-query" ]; then
+                has_print_query=true
+            fi
+        done
+        
+        if [ "$has_print_query" = true ]; then
+            # 1단계: 질의어 입력 단계
+            # --query 인자 값을 찾아 query로 반환
+            local next_is_q=false
+            for arg in "$@"; do
+                if [ "$next_is_q" = true ]; then
+                    q="$arg"
+                    break
+                fi
+                if [ "$arg" = "--query" ]; then
+                    next_is_q=true
+                fi
+            done
+            # fzf --print-query의 응답 형식 모방: 첫줄은 타이핑어, 둘째줄은 선택항목
+            echo "$q"
+            echo "📝 현재 입력어: $q"
         else
-            READLINE_LINE="$query"
+            # 2단계: 결과 확인 및 실행 승인 단계
+            # 파이프를 통해 들어오는 메뉴 항목들 중 추천 적용(👉) 항목을 자동 선택
+            grep "👉"
         fi
-        READLINE_POINT=${#READLINE_LINE}
+    }
+    export -f fzf
+
+    # install.sh의 대화형 위젯과 동일한 로직 실행
+    # 자연어 질의를 히스토리에 저장
+    history -s "$query"
+    # 대화형 FZF 화면 실행 (Mocking된 fzf가 작동)
+    local result=$(${PROJECT_DIR}/bin/ctrlg --interactive "$query" 2> /tmp/widget_test_stderr.log)
+    
+    if [ -n "$result" ]; then
+        READLINE_LINE="$result"
+    else
+        READLINE_LINE="$query"
     fi
+    READLINE_POINT=${#READLINE_LINE}
     
     # 최종 결과물 리턴 (추천 명령어로 치환되어야 함)
     echo "$READLINE_LINE"
@@ -39,7 +74,7 @@ _test_bash_bind_widget() {
 # 3. 위젯 구동 및 결과 캡처
 _run_widget() {
     rm -f /tmp/widget_test_stderr.log
-    timeout 35s bash -c "$(declare -f _test_bash_bind_widget); PROJECT_DIR=$PROJECT_DIR; _test_bash_bind_widget"
+    timeout 55s bash -c "$(declare -f _test_bash_bind_widget); PROJECT_DIR=$PROJECT_DIR; _test_bash_bind_widget"
 }
 
 widget_result=$(_run_widget | xargs)

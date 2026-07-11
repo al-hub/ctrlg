@@ -16,16 +16,9 @@ inject_shell_profile "bash" "$MOCK_BASHRC" &>/dev/null
 # 주입된 결과 파일 내용 읽기
 injected_content=$(cat "$MOCK_BASHRC")
 
-# 1. 쉘 위젯 로딩 및 자연어 보존을 위한 개행 제어 코드가 주입되어 있는지 단언
-if [[ "$injected_content" != *'printf'* ]]; then
-    echo "❌ [FAIL] 자연어 질의 보존 및 로그 출력을 위한 화면 제어 코드(printf)가 주입 코드 내에 누락되었습니다!"
-    rm -f "$MOCK_BASHRC"
-    exit 1
-fi
-
-# 2. ctrlg --raw 호출이 주입되어 있는지 단언
-if [[ "$injected_content" != *"--raw"* ]]; then
-    echo "❌ [FAIL] ctrlg --raw 호출 코드가 주입 코드 내에 누락되었습니다!"
+# 1. 대화형 모드 호출 옵션(--interactive)이 주입 코드 내에 포함되어 있는지 단언
+if [[ "$injected_content" != *"--interactive"* ]]; then
+    echo "❌ [FAIL] 대화형 모드 호출 옵션(--interactive)이 주입 코드 내에 누락되었습니다!"
     rm -f "$MOCK_BASHRC"
     exit 1
 fi
