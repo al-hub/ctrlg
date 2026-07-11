@@ -38,18 +38,41 @@ user: ${input}" \
             --argjson stream true \
             '{model: $model, prompt: $prompt, stream: $stream}')
 
-        # 2단계 피드백 개시 (실시간 명령어 생성 상태 연출)
-        printf "\e[1A\e[2K🔍 ctrlg: AI 추천 명령어 실시간 생성 중 ➡️  " >&2
+        # 2-1단계: 첫 토큰이 도달하기 전까지 백그라운드로 닷 로딩 애니메이션 구동 (비동기)
+        (
+            local dots=""
+            while true; do
+                dots="${dots}."
+                if [ ${#dots} -gt 3 ]; then dots=""; fi
+                printf "\r\e[2K🔍 ctrlg: AI 추천 명령어 분석 및 생성 중%s   " "$dots" >&2
+                sleep 0.5
+            done
+        ) &
+        local loader_pid=$!
+
+        local first_token=true
 
         # curl --no-buffer와 프로세스 치환으로 실시간 1토큰 단위 렌더링 스트리밍
         while read -r line; do
             [ -z "$line" ] && continue
             local token=$(echo "$line" | jq -r '.response' 2>/dev/null)
             if [ -n "$token" ] && [ "$token" != "null" ]; then
+                # 첫 번째 토큰 도착 즉시 백그라운드 비동기 로더 프로세스 강제 종료
+                if [ "$first_token" = true ]; then
+                    kill "$loader_pid" &>/dev/null
+                    wait "$loader_pid" 2>/dev/null
+                    # 실시간 명령어 생성 갱신 모드로 헤더 전환
+                    printf "\r\e[2K🔍 ctrlg: AI 추천 명령어 실시간 생성 중 ➡️  " >&2
+                    first_token=false
+                fi
                 response="${response}${token}"
                 printf "%s" "$token" >&2
             fi
         done < <(curl -s -N --connect-timeout 3 --max-time 25 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data")
+
+        # 안전 장치: 루프 종료 후 비동기 로더 강제 종료 상태 보장
+        kill "$loader_pid" &>/dev/null
+        wait "$loader_pid" 2>/dev/null
     else
         response=$(ollama run "${OLLAMA_MODEL}" "System: ${system_prompt}\nUser: ${input}" | sed '/^\s*$/d')
     fi
