@@ -41,13 +41,23 @@ export OLLAMA_HOST="http://127.0.0.1:11434"
 # 치환 가동
 result=$(/home/al-hub/workspace/ctrlg/bin/ctrlg --raw "하위폴더갯수")
 
-# 결과물 단언(Assert)
-# '하위폴더갯수'에 대해 성공적으로 'find' 명령어가 도출되었는지 확인합니다.
-# 만약 통신이 실패했거나 오작동하여 원본 문자열인 '하위폴더갯수'가 그대로 반환되었다면 테스트를 실패 처리합니다.
 if [[ "$result" == *"find"* ]]; then
     echo "✅ [Test 2 PASS] 명령어 치환 성공: '$result'"
-    exit 0
 else
     echo "❌ [Test 2 FAIL] 실제 AI 치환이 작동하지 않고 원본이 유지되었습니다! 결과: '$result'"
+    exit 1
+fi
+
+# ==========================================
+# Test 3: 복잡한 날짜 자연어 조건문의 치환 성공 검증 (TDD 추가)
+# ==========================================
+echo "🧪 [TDD Test 3] 복잡한 날짜 쿼리에 대한 치환 성공 및 보안 통과 검증..."
+result_complex=$(/home/al-hub/workspace/ctrlg/bin/ctrlg --raw "2026 4월 20일 이전의 생성된 파일의 갯수와 파일명")
+
+if [[ "$result_complex" == *"find"* ]] && [[ "$result_complex" == *"newermt"* ]]; then
+    echo "✅ [Test 3 PASS] 복잡 날짜 쿼리 치환 성공: '$result_complex'"
+    exit 0
+else
+    echo "❌ [Test 3 FAIL] 날짜 쿼리 치환 실패 또는 보안 차단 발생! 결과: '$result_complex'"
     exit 1
 fi

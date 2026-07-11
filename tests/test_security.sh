@@ -38,4 +38,7 @@ assert_status "find . -type f | rm -rf" 1
 # 6. 느낌표(!) 논리 부정 기호가 포함된 find 명령어 허용 검증 (TDD 추가)
 assert_status "find . -type f ! -newermt '2026-04-20'" 0
 
+# 7. 단어 중간에 rm이 들어간 무해한 명령어(remove 등) 허용 검증 (TDD 추가)
+assert_status "cat /tmp/remove_log.txt" 0
+
 exit 0
