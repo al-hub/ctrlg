@@ -143,11 +143,11 @@ raw_query_ai() {
     # 쿼리 수행
     local ai_res=$(query_ai "$input" "${project_dir}/config/config.env" "${project_dir}/prompts/system_prompt.txt")
     
-    # 첫 줄 추출
-    local first_line=$(echo "$ai_res" | head -n 1)
+    # 전체 응답에서 CMD: 접두사 행을 탐색 (모델이 사고 텍스트를 먼저 뱉어도 파싱 가능)
+    local cmd_line=$(echo "$ai_res" | grep -m1 "^CMD:")
     
-    if [[ "$first_line" =~ ^CMD: ]]; then
-        local cmd="${first_line#CMD:}"
+    if [ -n "$cmd_line" ]; then
+        local cmd="${cmd_line#CMD:}"
         cmd=$(echo "$cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
         
         # 보안 검증 로그
