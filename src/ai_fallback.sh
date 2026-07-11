@@ -91,13 +91,22 @@ user: ${input}" \
             shown=$((shown + 1))
         done
 
-        # TTFT(첫 토큰 대기) 구간: 2초마다 경과시간을 로그로 출력하는 heartbeat
+        # TTFT(첫 토큰 대기) 구간: 모델에게 주입된 실제 컨텍스트를 줄 단위로 노출
+        # 컨텍스트가 소진되면 elapsed 타이머로 전환. 첫 토큰 도착 시 즉시 종료.
         local _ttft_start=$SECONDS
         (
+            # tldr_context를 줄 단위로 순차 출력 (빈 줄 포함, 디버그 가시성 위해)
+            local ctx_shown=0
+            while IFS= read -r ctx_line; do
+                printf "[ctrlg]  ctx[%02d]: %s\n" "$ctx_shown" "$ctx_line" >&2
+                ctx_shown=$((ctx_shown + 1))
+                sleep 0.25
+            done <<< "$tldr_context"
+            # 컨텍스트 소진 후 elapsed 타이머
             while true; do
                 sleep 2
                 local elapsed=$(( SECONDS - _ttft_start ))
-                printf "[ctrlg]  waiting : first token... (%ds)\n" "$elapsed" >&2
+                printf "[ctrlg]  waiting : inferring... (%ds elapsed)\n" "$elapsed" >&2
             done
         ) &
         local heartbeat_pid=$!
@@ -108,11 +117,13 @@ user: ${input}" \
             [ -z "$line" ] && continue
             local token=$(echo "$line" | jq -r '.response' 2>/dev/null)
             if [ -n "$token" ] && [ "$token" != "null" ]; then
-                # 첫 토큰 도착 즉시 heartbeat 종료 후 output 헤더 출력
+                # 첫 토큰 도착 즉시 컨텍스트 스트리머 종료 후 output 헤더 출력
                 if [ "$first_token" = true ]; then
                     kill "$heartbeat_pid" &>/dev/null
                     wait "$heartbeat_pid" 2>/dev/null
-                    printf "[ctrlg]  output : " >&2
+                    local elapsed=$(( SECONDS - _ttft_start ))
+                    printf "[ctrlg]  ttft    : %ds\n" "$elapsed" >&2
+                    printf "[ctrlg]  output  : " >&2
                     first_token=false
                 fi
                 response="${response}${token}"
@@ -120,7 +131,7 @@ user: ${input}" \
             fi
         done < <(curl -s -N --connect-timeout 3 --max-time 25 -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data")
 
-        # 안전 장치: curl 종료 후 heartbeat 잔존 시 강제 종료
+        # 안전 장치: curl 종료 후 컨텍스트 스트리머 잔존 시 강제 종료
         kill "$heartbeat_pid" &>/dev/null
         wait "$heartbeat_pid" 2>/dev/null
 
