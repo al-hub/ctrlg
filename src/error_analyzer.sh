@@ -25,11 +25,15 @@ analyze_command_error() {
 
     local response=""
     if command -v curl &>/dev/null && command -v jq &>/dev/null; then
-        response=$(curl -s -X POST "${OLLAMA_HOST}/api/generate" -d "{
-            \"model\": \"${OLLAMA_MODEL}\",
-            \"prompt\": \"system: ${system_prompt}\nuser: 에러 해결책을 알려줘\",
-            \"stream\": false
-        }" | jq -r '.response' 2>/dev/null | sed '/^\s*$/d')
+        # jq를 사용해 JSON 페이로드를 안전하게 이스케이프 조립 (줄바꿈/따옴표 이스케이프 해결)
+        local json_data=$(jq -n \
+            --arg model "${OLLAMA_MODEL}" \
+            --arg prompt "system: ${system_prompt}
+user: 에러 해결책을 알려줘" \
+            --argjson stream false \
+            '{model: $model, prompt: $prompt, stream: $stream}')
+
+        response=$(curl -s -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data" | jq -r '.response' 2>/dev/null | sed '/^\s*$/d')
     else
         response=$(ollama run "${OLLAMA_MODEL}" "System: ${system_prompt}\nUser: 에러 해결책을 알려줘" | sed '/^\s*$/d')
     fi

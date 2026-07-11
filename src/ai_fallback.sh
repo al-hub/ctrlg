@@ -36,11 +36,15 @@ ${tldr_context}"
 
     local response=""
     if command -v curl &>/dev/null && command -v jq &>/dev/null; then
-        response=$(curl -s -X POST "${OLLAMA_HOST}/api/generate" -d "{
-            \"model\": \"${OLLAMA_MODEL}\",
-            \"prompt\": \"system: ${system_prompt}\nuser: ${input}\",
-            \"stream\": false
-        }" | jq -r '.response' 2>/dev/null | sed '/^\s*$/d')
+        # jq를 사용해 JSON 페이로드를 안전하게 이스케이프 조립 (줄바꿈/따옴표 이스케이프 해결)
+        local json_data=$(jq -n \
+            --arg model "${OLLAMA_MODEL}" \
+            --arg prompt "system: ${system_prompt}
+user: ${input}" \
+            --argjson stream false \
+            '{model: $model, prompt: $prompt, stream: $stream}')
+
+        response=$(curl -s -X POST "${OLLAMA_HOST}/api/generate" -d "$json_data" | jq -r '.response' 2>/dev/null | sed '/^\s*$/d')
     else
         response=$(ollama run "${OLLAMA_MODEL}" "System: ${system_prompt}\nUser: ${input}" | sed '/^\s*$/d')
     fi
@@ -61,9 +65,10 @@ raw_query_ai() {
     local input="$1"
     local project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     
-    # Fast Path 모듈 로드 및 시도
+    # Fast Path 모듈 로드 및 시도 (선언과 대입 분리로 종료 코드 덮어쓰기 방지)
     source "${project_dir}/src/fast_path.sh"
-    local fast_cmd=$(check_fast_path "$input")
+    local fast_cmd
+    fast_cmd=$(check_fast_path "$input")
     if [ $? -eq 0 ]; then
         echo "$fast_cmd"
         return 0
