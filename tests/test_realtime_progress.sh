@@ -37,9 +37,9 @@ check_step() {
     fi
 }
 
-check_step "탐색" "1단계 (Ollama 헬스체크 및 연결)"
-check_step "추론" "2단계 (AI 분석 및 명령어 추론)"
-check_step "보안" "3단계 (도출된 명령어 보안성 검사)"
+check_step "host" "1단계 (Ollama 호스트 탐색 및 연결)"
+check_step "model" "2단계 (AI 모델 및 추론 실행)"
+check_step "security" "3단계 (보안성 검증)"
 
 # 4. 최종 결과 판정
 if [ $errors -eq 0 ]; then

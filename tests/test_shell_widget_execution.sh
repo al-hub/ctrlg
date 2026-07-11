@@ -42,7 +42,7 @@ _test_bash_bind_widget() {
 
 # 3. 위젯 구동 및 결과 캡처
 # 25초 넉넉한 시간 제한을 걸어 콜드 스타트에 의한 지연을 방어합니다.
-widget_result=$(timeout 25s bash -c "$(declare -f _test_bash_bind_widget); PROJECT_DIR=$PROJECT_DIR; _test_bash_bind_widget")
+widget_result=$(timeout 35s bash -c "$(declare -f _test_bash_bind_widget); PROJECT_DIR=$PROJECT_DIR; _test_bash_bind_widget")
 
 # 4. 검증 (Assert)
 # 만약 실제 위젯 환경 내부에서 통신 오류나 치환 실패가 나고

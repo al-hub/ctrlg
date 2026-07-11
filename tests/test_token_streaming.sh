@@ -18,23 +18,23 @@ mkdir -p "$(dirname "$stderr_log")"
 rm -f "$stderr_log"
 
 # --raw 질의를 날리면서 표준 에러(2)만 로그 파일로 가로챕니다.
-/home/al-hub/workspace/ctrlg/bin/ctrlg --raw "하위폴더갯수" 2> "$stderr_log" >/dev/null
+/home/al-hub/workspace/ctrlg/bin/ctrlg --raw "하위폴더 중 *.zip 확장자의 파일목록과 갯수" 2> "$stderr_log" >/dev/null
 
 echo "   - 캡처된 Stderr 실시간 스트리밍 로그 분석 중..."
 
 # 3. 단언 검증 (Assert)
 errors=0
-if grep -q "RAG 지식 참조 중" "$stderr_log"; then
-    echo "     ✅ [OK] 실시간 RAG 지식 예시 템플릿(find/wc/zip 예제) 스크롤러 감지 성공"
+if grep -q "ref   :" "$stderr_log"; then
+    echo "     ✅ [OK] RAG 예시 명령어 누적 로그 출력 감지 성공"
 else
-    echo "     ❌ [FAIL] 실시간 RAG 지식 예시 템플릿 스크롤 텍스트가 Stderr 로그에 없습니다."
+    echo "     ❌ [FAIL] RAG 예시 명령어 로그(ref   :)가 Stderr 로그에 없습니다."
     errors=$((errors + 1))
 fi
 
-if grep -q "실시간 생성 중" "$stderr_log"; then
-    echo "     ✅ [OK] 스트리밍 접두사 감지 성공"
+if grep -q "output:" "$stderr_log"; then
+    echo "     ✅ [OK] AI 실시간 생성 출력 로그 접두사 감지 성공"
 else
-    echo "     ❌ [FAIL] 스트리밍 접두사('실시간 생성 중')가 Stderr 로그에 없습니다."
+    echo "     ❌ [FAIL] AI 출력 로그 접두사('output:')가 Stderr 로그에 없습니다."
     errors=$((errors + 1))
 fi
 
