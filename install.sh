@@ -58,16 +58,16 @@ inject_shell_profile() {
         snippet="
 # ctrlg AI CLI Integration Start
 if [ -f ${BIN_DEST} ]; then
-    # Zsh Ctrl+G 위젯 바인딩 (절대경로 호출 적용)
+    # Zsh Ctrl+G 위젯 바인딩 (절대경로 및 실시간 피드백 적용)
     ctrlg-widget() {
         local query=\"\$BUFFER\"
         if [ -n \"\$query\" ]; then
-            POSTDISPLAY=\" ... (AI 분석 중)\"
+            printf \"\\\\n\\\\e[1;30m🔍 ctrlg: AI 분석 중... (Ollama 연결 및 추론 진행)\\\\e[0m\\\\n\"
             zle redisplay
             local result=\$(${BIN_DEST} --raw \"\$query\")
+            printf \"\\\\e[1A\\\\e[2K\\\\e[1A\\\\e[2K\"
             BUFFER=\"\$result\"
             CURSOR=\$\#BUFFER
-            POSTDISPLAY=\"\"
             zle redisplay
         fi
     }
@@ -93,11 +93,13 @@ fi
         snippet="
 # ctrlg AI CLI Integration Start
 if [ -f ${BIN_DEST} ]; then
-    # Bash Ctrl+G 위젯 바인딩 (절대경로 호출 적용)
+    # Bash Ctrl+G 위젯 바인딩 (절대경로 및 실시간 피드백 적용)
     _ctrlg_bash_bind() {
         local query=\"\$READLINE_LINE\"
         if [ -n \"\$query\" ]; then
+            printf \"\\\\n\\\\e[1;30m🔍 ctrlg: AI 분석 중... (Ollama 연결 및 추론 진행)\\\\e[0m\\\\n\"
             local result=\$(${BIN_DEST} --raw \"\$query\")
+            printf \"\\\\e[1A\\\\e[2K\\\\e[1A\\\\e[2K\"
             READLINE_LINE=\"\$result\"
             READLINE_POINT=\$\{#READLINE_LINE\}
         fi
