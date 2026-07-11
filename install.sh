@@ -62,17 +62,12 @@ if [ -f ${BIN_DEST} ]; then
     ctrlg-widget() {
         local query=\"\$BUFFER\"
         if [ -n \"\$query\" ]; then
-            # 자연어 질의를 히스토리에 먼저 저장
+            # 자연어 질의를 히스토리에 저장하여 이력 관리 지원
             print -s \"\$query\"
             printf \"\\\\n\"
             zle redisplay
-            local result=\$(${BIN_DEST} --raw \"\$query\")
-            if [ -n \"\$result\" ]; then
-                BUFFER=\"\$result\"
-            else
-                BUFFER=\"\$query\"
-            fi
-            CURSOR=\$\#BUFFER
+            # 결과를 다음 줄에 출력하기 위해 실행하되 버퍼는 바꾸지 않음
+            ${BIN_DEST} --raw \"\$query\" >/dev/null
             zle redisplay
         fi
     }
@@ -102,16 +97,11 @@ if [ -f ${BIN_DEST} ]; then
     _ctrlg_bash_bind() {
         local query=\"\$READLINE_LINE\"
         if [ -n \"\$query\" ]; then
-            # 자연어 질의를 히스토리에 먼저 저장
+            # 자연어 질의를 히스토리에 저장하여 이력 관리 지원
             history -s \"\$query\"
             printf \"\\\\n\"
-            local result=\$(${BIN_DEST} --raw \"\$query\")
-            if [ -n \"\$result\" ]; then
-                READLINE_LINE=\"\$result\"
-            else
-                READLINE_LINE=\"\$query\"
-            fi
-            READLINE_POINT=\$\{#READLINE_LINE\}
+            # 결과를 다음 줄에 출력하기 위해 실행하되 버퍼는 바꾸지 않음
+            ${BIN_DEST} --raw \"\$query\" >/dev/null
         fi
     }
     bind -x '\"\C-g\": _ctrlg_bash_bind'
