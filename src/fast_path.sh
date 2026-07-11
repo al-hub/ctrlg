@@ -4,6 +4,12 @@
 # 일치하는 명령어가 있으면 해당 명령어를 표준출력하고 0을 리턴, 없으면 1을 리턴
 check_fast_path() {
     local input="$1"
+    
+    # 확장자 패턴(.zip 등)이나 개수/날짜 등의 복합 조건이 포함되어 있다면 AI 추론으로 양보
+    if echo "$input" | grep -qE '\.[a-zA-Z0-9*]+|갯수|개수|날짜|크기'; then
+        return 1
+    fi
+
     case "$input" in
         *현재*위치*|*현재*폴더*|*현재*디렉토리*|*pwd*)      { echo "pwd"; return 0; } ;;
         *하위*목록*|*현재*목록*|*ls*|*파일*목록*)       { echo "ls -la"; return 0; } ;;
