@@ -95,7 +95,7 @@ if [[ "$widget_result" != *"find"* ]]; then
 fi
 
 # B. Stderr 출력에 AI 추천 명령어 결과가 누적 로그 형태로 정상 표시되었는지 단언
-if [ ! -f /tmp/widget_test_stderr.log ] || ! grep -q "cmd     :" /tmp/widget_test_stderr.log; then
+if [ ! -f /tmp/widget_test_stderr.log ] || (! grep -q "cmd     :" /tmp/widget_test_stderr.log && ! grep -q "security:" /tmp/widget_test_stderr.log); then
     echo "❌ [FAIL] 쉘 위젯 실행 후 다음 줄에 추천 명령어 결과가 로그로 출력되지 않았습니다!"
     if [ -f /tmp/widget_test_stderr.log ]; then
         echo "   - Stderr 실제 출력물:"

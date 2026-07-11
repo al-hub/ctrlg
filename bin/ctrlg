@@ -24,6 +24,13 @@ if [ "$1" = "--raw" ]; then
     exit 0
 fi
 
+# 1.3 쉘 위젯용 --raw-multi 통신 처리
+if [ "$1" = "--raw-multi" ]; then
+    shift
+    raw_query_ai "$*" 1
+    exit 0
+fi
+
 # 1.5 쉘 위젯용 대화형 FZF 모드 처리
 if [ "$1" = "--interactive" ]; then
     shift
@@ -64,11 +71,18 @@ if [ -z "$ai_response" ]; then
     exit 1
 fi
 
-# 첫 번째 라인 추출
-first_line=$(echo "$ai_response" | head -n 1)
+# AI 응답 획득 후 단어 경계 누락 대비 강제 줄바꿈 전처리 적용
+formatted_response=$(echo "$ai_response" | sed -E 's/([dD][eE][sS][cC][1-3]:|[cC][mM][dD][2-3]:)/\n\1/g')
 
-if [[ "$first_line" =~ ^CMD: ]]; then
-    cmd="${first_line#CMD:}"
+# 첫 번째 라인 추출
+first_line=$(echo "$formatted_response" | head -n 1)
+
+if [[ "$first_line" =~ ^CMD: ]] || [[ "$first_line" =~ ^CMD1: ]]; then
+    if [[ "$first_line" =~ ^CMD1: ]]; then
+        cmd="${first_line#CMD1:}"
+    else
+        cmd="${first_line#CMD:}"
+    fi
     cmd=$(echo "$cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
     # 보안성 검사

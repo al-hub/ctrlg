@@ -156,18 +156,24 @@ user: ${input}" \
 # 쉘 위젯 통신을 위한 날것의 CMD 전용 질의 함수
 raw_query_ai() {
     local input="$1"
+    local is_multi="$2"  # 1이면 다중 후보군 반환 모드
     if [ -z "$input" ]; then
         echo ""
         return 1
     fi
     local project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     
-    # Fast Path 모듈 로드 및 시도 (선언과 대입 분리로 종료 코드 덮어쓰기 방지)
+    # Fast Path 모듈 로드 및 시도 (Fast Path는 무조건 단일 후보군으로 간주)
     source "${project_dir}/src/fast_path.sh"
     local fast_cmd
     fast_cmd=$(check_fast_path "$input")
     if [ $? -eq 0 ]; then
-        echo "$fast_cmd"
+        if [ "$is_multi" = "1" ]; then
+            echo "CMD1: $fast_cmd"
+            echo "DESC1: 빠른 매핑 명령어 (100% 매칭)"
+        else
+            echo "$fast_cmd"
+        fi
         return 0
     fi
     
@@ -176,67 +182,131 @@ raw_query_ai() {
     printf "\n[ctrlg] query  : %s\n" "$input" >&2
     printf "[ctrlg]  host  : http://127.0.0.1:11434 (탐색 중...)\n" >&2
     
-    # 쿼리 수행 (CMD: 누락 대비 1회 재시도, 단 빈 응답/타임아웃은 제외)
+    # 쿼리 수행
     local ai_res=$(query_ai "$input" "${project_dir}/config/config.env" "${project_dir}/prompts/system_prompt.txt")
-    local cmd_line=$(echo "$ai_res" | grep -m1 -i "^CMD:")
-    if [ -z "$cmd_line" ] && [ -n "$ai_res" ]; then
+    
+    # 만약 CMD1: 혹은 CMD:가 모두 없으면 1회 재시도 (단 빈 응답/타임아웃은 제외)
+    if [[ "$ai_res" != *"[cC][mM][dD]1:"* ]] && [[ "$ai_res" != *"[cC][mM][dD]:"* ]] && [ -n "$ai_res" ]; then
         ai_res=$(query_ai "$input" "${project_dir}/config/config.env" "${project_dir}/prompts/system_prompt.txt")
-        cmd_line=$(echo "$ai_res" | grep -m1 -i "^CMD:")
     fi
 
-    # 응답 파싱 (CMD:, 백틱, 화이트리스트 기반 Plain Command 순차 시도)
-    local cmd=""
-    if [ -n "$cmd_line" ]; then
-        cmd=$(echo "$cmd_line" | sed -E 's/^[cC][mM][dD]://i')
-        cmd=$(echo "$cmd" | sed -E 's/[cC][mM][dD]:.*$//' | sed 's/`.*$//' | xargs)
-    else
-        local backtick_cmd=$(echo "$ai_res" | grep -oP '`[^`]+`' | head -1 | tr -d '`')
-        if [ -n "$backtick_cmd" ]; then
-            cmd="$backtick_cmd"
+    # 다중 후보군 또는 단일 후보군 추출
+    local cmd1="" desc1=""
+    local cmd2="" desc2=""
+    local cmd3="" desc3=""
+
+    # 1. 신규 포맷 (CMD1/DESC1) 파싱 시도 (단어 경계 누락 대비 강제 줄바꿈 전처리)
+    local formatted_res=$(echo "$ai_res" | sed -E 's/([dD][eE][sS][cC][1-3]:|[cC][mM][dD][2-3]:)/\n\1/g')
+
+    if echo "$formatted_res" | grep -q -i "^CMD1:"; then
+        cmd1=$(echo "$formatted_res" | grep -i "^CMD1:" | head -n 1 | sed -E 's/^[cC][mM][dD]1:[[:space:]]*//i' | xargs)
+        desc1=$(echo "$formatted_res" | grep -i "^DESC1:" | head -n 1 | sed -E 's/^[dD][eE][sS][cC]1:[[:space:]]*//i' | xargs)
+        cmd2=$(echo "$formatted_res" | grep -i "^CMD2:" | head -n 1 | sed -E 's/^[cC][mM][dD]2:[[:space:]]*//i' | xargs)
+        desc2=$(echo "$formatted_res" | grep -i "^DESC2:" | head -n 1 | sed -E 's/^[dD][eE][sS][cC]2:[[:space:]]*//i' | xargs)
+        cmd3=$(echo "$formatted_res" | grep -i "^CMD3:" | head -n 1 | sed -E 's/^[cC][mM][dD]3:[[:space:]]*//i' | xargs)
+        desc3=$(echo "$formatted_res" | grep -i "^DESC3:" | head -n 1 | sed -E 's/^[dD][eE][sS][cC]3:[[:space:]]*//i' | xargs)
+    fi
+
+    # 2. 파싱 실패 시 레거시 포맷 (CMD: 등) 파싱 시도 및 CMD1로 매핑
+    if [ -z "$cmd1" ]; then
+        local cmd_line=$(echo "$ai_res" | grep -m1 -i "^CMD:")
+        local legacy_cmd=""
+        if [ -n "$cmd_line" ]; then
+            legacy_cmd=$(echo "$cmd_line" | sed -E 's/^[cC][mM][dD]://i')
+            legacy_cmd=$(echo "$legacy_cmd" | sed -E 's/[cC][mM][dD]:.*$//' | sed 's/`.*$//' | xargs)
         else
-            # Fallback: CMD: 접두사도 없고 백틱도 없지만, 첫 줄이 허용된 명령어 이름으로 시작하는 경우
-            local first_line=$(echo "$ai_res" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-            local first_word=$(echo "$first_line" | awk '{print $1}')
-            source "${project_dir}/config/config.env"
-            local is_whitelisted=0
-            for w in $WHITELIST_COMMANDS; do
-                if [ "$first_word" = "$w" ]; then
-                    is_whitelisted=1
-                    break
+            local backtick_cmd=$(echo "$ai_res" | grep -oP '`[^`]+`' | head -1 | tr -d '`')
+            if [ -n "$backtick_cmd" ]; then
+                legacy_cmd="$backtick_cmd"
+            else
+                local first_line=$(echo "$ai_res" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+                local first_word=$(echo "$first_line" | awk '{print $1}')
+                local is_whitelisted=0
+                for w in $WHITELIST_COMMANDS; do
+                    if [ "$first_word" = "$w" ]; then
+                        is_whitelisted=1
+                        break
+                    fi
+                done
+                if [ $is_whitelisted -eq 1 ]; then
+                    legacy_cmd=$(echo "$first_line" | sed 's/`.*$//' | xargs)
                 fi
-            done
-            if [ $is_whitelisted -eq 1 ]; then
-                cmd=$(echo "$first_line" | sed 's/`.*$//' | xargs)
-                printf "[ctrlg]  fallback : detected plain command without prefix [%s]\n" "$cmd" >&2
             fi
         fi
+
+        if [ -n "$legacy_cmd" ]; then
+            cmd1="$legacy_cmd"
+            desc1="AI 추천 명령어"
+        fi
     fi
 
-    if [ -n "$cmd" ]; then
-        # 보안 검증 로그
-        printf "[ctrlg]  security: validating [%s]\n" "$cmd" >&2
+    # 보안 검증 필터 적용
+    source "${project_dir}/src/security.sh"
+    
+    # 각 명령어 후보에 대해 개별 보안 검증 수행
+    local valid_cmd1="" valid_cmd2="" valid_cmd3=""
 
-        source "${project_dir}/src/security.sh"
-        validate_command "$cmd" "$WHITELIST_COMMANDS"
-        if [ $? -eq 0 ]; then
-            # 최종 명령어를 구분선과 함께 명확히 출력 (다음 줄 결과 표시 UX)
-            printf "[ctrlg]  --\n" >&2
-            printf "[ctrlg]  cmd     : %s\n" "$cmd" >&2
-            printf "[ctrlg]  --\n" >&2
-            echo "$cmd"
+    if [ -n "$cmd1" ]; then
+        validate_command "$cmd1" "$WHITELIST_COMMANDS"
+        [ $? -eq 0 ] && valid_cmd1="$cmd1"
+    fi
+    if [ -n "$cmd2" ]; then
+        validate_command "$cmd2" "$WHITELIST_COMMANDS"
+        [ $? -eq 0 ] && valid_cmd2="$cmd2"
+    fi
+    if [ -n "$cmd3" ]; then
+        validate_command "$cmd3" "$WHITELIST_COMMANDS"
+        [ $? -eq 0 ] && valid_cmd3="$cmd3"
+    fi
+
+    # 최종 결과 출력 분기
+    if [ "$is_multi" = "1" ]; then
+        # 다중 출력 모드: 라벨 형식 출력
+        local has_any=0
+        if [ -n "$valid_cmd1" ]; then
+            echo "CMD1: $valid_cmd1"
+            echo "DESC1: ${desc1:-AI 추천 1순위}"
+            has_any=1
+        fi
+        if [ -n "$valid_cmd2" ]; then
+            echo "CMD2: $valid_cmd2"
+            echo "DESC2: ${desc2:-AI 추천 2순위}"
+            has_any=1
+        fi
+        if [ -n "$valid_cmd3" ]; then
+            echo "CMD3: $valid_cmd3"
+            echo "DESC3: ${desc3:-AI 추천 3순위}"
+            has_any=1
+        fi
+
+        if [ $has_any -eq 1 ]; then
+            # 로그 정보
+            printf "[ctrlg]  security: multi-command validation complete\n" >&2
+            return 0
         else
             printf "[ctrlg]  result  : BLOCKED (security risk detected)\n" >&2
-            echo ""
+            return 1
         fi
     else
-        # CMD: 없는 자연어 응답 → 빈 출력 방지 (질문형 지원)
-        local clean_response=$(echo "$ai_res" | tr -d '\r' | perl -0777 -pe 's/Thinking\.\.\..*?\.\.\.done thinking\.\n?//gs' | perl -0777 -pe 's/<think>.*?<\/think>\n?//gs' | sed '/^\s*$/d')
-        if [ -n "$clean_response" ]; then
-            printf "[ctrlg]  result  : NATURAL_LANG\n" >&2
-            echo "$clean_response"
+        # 단일 출력 모드: 기존 호환성 유지
+        if [ -n "$valid_cmd1" ]; then
+            printf "[ctrlg]  security: validating [%s]\n" "$valid_cmd1" >&2
+            printf "[ctrlg]  --\n" >&2
+            printf "[ctrlg]  cmd     : %s\n" "$valid_cmd1" >&2
+            printf "[ctrlg]  --\n" >&2
+            echo "$valid_cmd1"
+            return 0
         else
-            printf "[ctrlg]  result  : EMPTY\n" >&2
-            echo ""
+            # CMD가 모두 없거나 보안 차단 시
+            local clean_response=$(echo "$ai_res" | tr -d '\r' | perl -0777 -pe 's/Thinking\.\.\..*?\.\.\.done thinking\.\n?//gs' | perl -0777 -pe 's/<think>.*?<\/think>\n?//gs' | sed '/^\s*$/d')
+            if [ -n "$clean_response" ]; then
+                printf "[ctrlg]  result  : NATURAL_LANG\n" >&2
+                echo "$clean_response"
+            else
+                printf "[ctrlg]  result  : EMPTY\n" >&2
+                echo ""
+            fi
+            return 1
         fi
     fi
 }

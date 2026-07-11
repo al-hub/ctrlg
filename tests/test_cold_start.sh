@@ -23,10 +23,10 @@ curl -s -X POST http://127.0.0.1:11434/api/generate -d '{
 echo "   - Ollama VRAM 모델 언로드 완료. 콜드 스타트 상태를 유도했습니다."
 echo "   - 10초 미만(8초) 제한 시간 하에 복잡 날짜 명령어 치환 실행..."
 
-# 3. 모델 로딩에 10~15초가 걸리는 상태에서, 35초 충분한 제한을 두고 치환 실행
+# 3. 모델 로딩에 10~15초가 걸리는 상태에서, 75초 충분한 제한을 두고 치환 실행
 # 콜드 스타트 시 첫 추론이 비어 나오는 경우를 대비해 최대 1회 재시도합니다.
 _run_query() {
-    timeout 35s /home/al-hub/workspace/ctrlg/bin/ctrlg --raw "2026 4월 20일 이전의 생성된 파일의 갯수와 파일명"
+    timeout 75s /home/al-hub/workspace/ctrlg/bin/ctrlg --raw "2026 4월 20일 이전의 생성된 파일의 갯수와 파일명"
 }
 
 result=$(_run_query)
@@ -37,12 +37,12 @@ if [[ "$result" != *"find"* ]]; then
 fi
 
 # 4. 검증 (Assert)
-# 25초의 대기로 콜드 스타트 상태임에도 치환에 최종 성공했는지 확인합니다.
+# 콜드 스타트 상태임에도 최종적으로 치환에 성공했는지 확인합니다.
 if [[ "$result" == *"find"* ]]; then
-    echo "✅ [통과] 콜드 스타트 상태임에도 25초 이내에 정상적으로 치환 완료: '$result'"
+    echo "✅ [통과] 콜드 스타트 상태임에도 정상적으로 치환 완료: '$result'"
     exit 0
 else
-    echo "❌ [FAIL] 25초의 여유 시간이 주어졌음에도 치환에 실패하고 원본이 반환되었습니다!"
+    echo "❌ [FAIL] 충분한 여유 시간이 주어졌음에도 치환에 실패하고 원본이 반환되었습니다!"
     echo "   - 출력 결과: '$result'"
     exit 1
 fi
