@@ -25,14 +25,15 @@ _test_bash_bind_widget() {
         # 단일 개행으로 실시간 Stderr 렌더링 영역을 확보
         printf "\n"
         
-        # 실제 빌드 주소의 바이너리를 사용해 원시 쿼리 획득
+        # 실제 빌드 주소의 바이너리를 사용해 원시 쿼 획득
         local result=$(${PROJECT_DIR}/bin/ctrlg --raw "$query")
         
-        # 화면 복구를 위한 1행 지우기 시퀀스
-        printf "\e[1A\e[2K"
-        
-        # 쉘 버퍼 교체
-        READLINE_LINE="$result"
+        # 쉘 버퍼 교체 및 원본 유지 폴백
+        if [ -n "$result" ]; then
+            READLINE_LINE="$result"
+        else
+            READLINE_LINE="$query"
+        fi
         READLINE_POINT=${#READLINE_LINE}
     fi
     

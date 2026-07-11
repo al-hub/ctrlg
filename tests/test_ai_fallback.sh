@@ -56,14 +56,23 @@ _run_date_query() {
     /home/al-hub/workspace/ctrlg/bin/ctrlg --raw "2026 4월 20일 이전의 생성된 파일의 갯수와 파일명"
 }
 
+_is_valid_date_result() {
+    local r="$1"
+    if [[ "$r" == *"find"* ]] && ([[ "$r" == *"newermt"* ]] || [[ "$r" == *"mtime"* ]] || [[ "$r" == *"2026"* ]]); then
+        return 0
+    else
+        return 1
+    fi
+}
+
 result_complex=$(_run_date_query)
-if [[ "$result_complex" != *"find"* ]]; then
+if ! _is_valid_date_result "$result_complex"; then
+    echo "   - 1차 시도 결과 미흡('$result_complex'), 2초 대기 후 재시도..."
     sleep 2
     result_complex=$(_run_date_query)
 fi
 
-if [[ "$result_complex" == *"find"* ]] && ([[ "$result_complex" == *"newermt"* ]] || [[ "$result_complex" == *"mtime"* ]] || [[ "$result_complex" == *"2026"* ]]);
-then
+if _is_valid_date_result "$result_complex"; then
     echo "✅ [Test 3 PASS] 복잡 날짜 쿼리 치환 성공: '$result_complex'"
     exit 0
 else

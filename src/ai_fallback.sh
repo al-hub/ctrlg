@@ -96,11 +96,12 @@ user: ${input}" \
         local _ttft_start=$SECONDS
         (
             # tldr_context를 줄 단위로 순차 출력 (빈 줄 포함, 디버그 가시성 위해)
+            # sleep 0.05초로 갱신 속도를 끌어올려 대기 체감을 줄이고 빠른 응답을 확보합니다.
             local ctx_shown=0
             while IFS= read -r ctx_line; do
                 printf "[ctrlg]  ctx[%02d]: %s\n" "$ctx_shown" "$ctx_line" >&2
                 ctx_shown=$((ctx_shown + 1))
-                sleep 0.25
+                sleep 0.05
             done <<< "$tldr_context"
             # 컨텍스트 소진 후 elapsed 타이머
             while true; do
@@ -183,7 +184,7 @@ raw_query_ai() {
         cmd_line=$(echo "$ai_res" | grep -m1 -i "^CMD:")
     fi
 
-    # 응답 파싱 (CMD:, 백틱 순차 시도)
+    # 응답 파싱 (CMD:, 백틱, 화이트리스트 기반 Plain Command 순차 시도)
     local cmd=""
     if [ -n "$cmd_line" ]; then
         cmd=$(echo "$cmd_line" | sed -E 's/^[cC][mM][dD]://i')
@@ -192,6 +193,22 @@ raw_query_ai() {
         local backtick_cmd=$(echo "$ai_res" | grep -oP '`[^`]+`' | head -1 | tr -d '`')
         if [ -n "$backtick_cmd" ]; then
             cmd="$backtick_cmd"
+        else
+            # Fallback: CMD: 접두사도 없고 백틱도 없지만, 첫 줄이 허용된 명령어 이름으로 시작하는 경우
+            local first_line=$(echo "$ai_res" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            local first_word=$(echo "$first_line" | awk '{print $1}')
+            source "${project_dir}/config/config.env"
+            local is_whitelisted=0
+            for w in $WHITELIST_COMMANDS; do
+                if [ "$first_word" = "$w" ]; then
+                    is_whitelisted=1
+                    break
+                fi
+            done
+            if [ $is_whitelisted -eq 1 ]; then
+                cmd=$(echo "$first_line" | sed 's/`.*$//' | xargs)
+                printf "[ctrlg]  fallback : detected plain command without prefix [%s]\n" "$cmd" >&2
+            fi
         fi
     fi
 
