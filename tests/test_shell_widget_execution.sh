@@ -22,14 +22,14 @@ _test_bash_bind_widget() {
     # install.sh에 등록된 것과 100% 동일한 위젯 로직 수행
     local query="$READLINE_LINE"
     if [ -n "$query" ]; then
-        # 하단 로딩 진행 상황 표시
-        printf "\n\e[1;30m🔍 ctrlg: AI 분석 중... (Ollama 연결 및 추론 진행)\e[0m\n"
+        # 단일 개행으로 실시간 Stderr 렌더링 영역을 확보
+        printf "\n"
         
         # 실제 빌드 주소의 바이너리를 사용해 원시 쿼리 획득
         local result=$(${PROJECT_DIR}/bin/ctrlg --raw "$query")
         
-        # 화면 지우기 시퀀스
-        printf "\e[1A\e[2K\e[1A\e[2K"
+        # 화면 복구를 위한 1행 지우기 시퀀스
+        printf "\e[1A\e[2K"
         
         # 쉘 버퍼 교체
         READLINE_LINE="$result"

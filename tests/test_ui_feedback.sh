@@ -17,9 +17,9 @@ inject_shell_profile "bash" "$MOCK_BASHRC" &>/dev/null
 # 주입된 결과 파일 내용 읽기
 injected_content=$(cat "$MOCK_BASHRC")
 
-# 1. 쉘 위젯 로딩 안내문이 스니펫에 주입되어 있는지 단언
-if [[ "$injected_content" != *"AI 분석 중"* ]]; then
-    echo "❌ [FAIL] 단축키 동작 과정 실시간 안내문(AI 분석 중)이 쉘 프로필 주입 코드 내에 누락되었습니다!"
+# 1. 쉘 위젯 로딩을 위한 단일 개행이 스니펫에 주입되어 있는지 단언 (1행 스트리밍 연출 공간 확보)
+if [[ "$injected_content" != *"printf \"\\\\n\""* ]]; then
+    echo "❌ [FAIL] 단축키 동작 과정 실시간 갱신을 위한 개행 확보 코드가 쉘 프로필 주입 코드 내에 누락되었습니다!"
     rm -f "$MOCK_BASHRC"
     exit 1
 fi
